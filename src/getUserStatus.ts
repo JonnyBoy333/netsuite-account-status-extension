@@ -1,6 +1,6 @@
 function getStatus(document) {
     console.log('NetSuite User Status running...');
-
+    if (!document.getElementsByClassName('ns-role-company')[0]) return;
     function gatherData() {
         const account = document.getElementsByClassName('ns-role-company')[0].innerHTML;
         const username = document.getElementsByClassName('ns-role')[0].firstElementChild.innerHTML;
