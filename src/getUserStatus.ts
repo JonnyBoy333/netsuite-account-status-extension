@@ -4,7 +4,7 @@ function getStatus(document) {
     function gatherData() {
         const account = document.getElementsByClassName('ns-role-company')[0].innerHTML;
         const username = document.getElementsByClassName('ns-role')[0].firstElementChild.innerHTML;
-        const berganKDV = account.indexOf('BerganKDV Technology and Consulting') >= 0;
+        const berganKDV = account.indexOf('BerganKDV, LTD') >= 0;
         const domain = 'https://' + document.location.hostname;
         const logoElements = document.getElementsByClassName('ns-logo');
         const logoUrl = domain + logoElements[logoElements.length - 1].firstElementChild.getAttribute('src');
