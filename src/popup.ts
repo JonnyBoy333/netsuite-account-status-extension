@@ -2,7 +2,10 @@
 declare const message: HTMLElement;
 
 function convertMS(ms) {
-    let d, h, m, s;
+    let d;
+    let h;
+    let m;
+    let s;
     s = Math.floor(ms / 1000);
     m = Math.floor(s / 60);
     s = s % 60;
@@ -11,18 +14,17 @@ function convertMS(ms) {
     d = Math.floor(h / 24);
     h = h % 24;
     return { d, h, m, s };
-};
+}
 
 function transitionEndEventName() {
-    var i,
-        undefined,
-        el = document.createElement('div'),
-        transitions = {
-            'transition': 'transitionend',
-            'OTransition': 'otransitionend',  // oTransitionEnd in very old Opera
-            'MozTransition': 'transitionend',
-            'WebkitTransition': 'webkitTransitionEnd'
-        };
+    let i;
+    const el = document.createElement('div');
+    const transitions = {
+        transition: 'transitionend',
+        OTransition: 'otransitionend',  // TransitionEnd in very old Opera
+        MozTransition: 'transitionend',
+        WebkitTransition: 'webkitTransitionEnd'
+    };
 
     for (i in transitions) {
         if (transitions.hasOwnProperty(i) && el.style[i] !== undefined) {
@@ -59,12 +61,12 @@ function addUserRows(data) {
             else if ((currentDate - lastSeen) > fifteenMinutes) seenClass = 'badge badge-primary badge-pill';
             else if ((currentDate - lastSeen) < fifteenMinutes) seenClass = 'badge badge-success badge-pill';
 
-            // console.log('Class', seenClass);
+      // console.log('Class', seenClass);
             let seenDifference = `<span class="${seenClass}">`;
             if (seenDifferenceObj.d > 0) seenDifference += `${seenDifferenceObj.d} day${seenDifferenceObj.d === 1 ? '' : 's'} ago</span>`;
             else if (seenDifferenceObj.h > 0) seenDifference += `${seenDifferenceObj.h} hour${seenDifferenceObj.h === 1 ? '' : 's'} ago</span>`;
             else if (seenDifferenceObj.m > 0) seenDifference += `${seenDifferenceObj.m} minute${seenDifferenceObj.m === 1 ? '' : 's'} ago</span>`;
-            else if (seenDifferenceObj.m <= 0) seenDifference += `< 1 minute ago</span>`;
+            else if (seenDifferenceObj.m <= 0) seenDifference += '< 1 minute ago</span>';
             console.log('Seen Difference', seenDifference);
 
             const rowHTML = `
@@ -73,45 +75,45 @@ function addUserRows(data) {
                     <td>${user.account}<br><span style="color: #989898">${user.username}<span></td>
                     <td style="text-align: center;">${user.name}</td>
                     <td style="text-align: center;">${seenDifference}</td>
-                    ${show ? '<td style="text-align: center;">' + user.hits + '</td>' : ''}
+                    ${show ? `<td style="text-align: center;">${user.hits}</td>` : ''}
                 </tr>`;
-            theadElement.insertAdjacentHTML('beforeend', rowHTML);
+            theadElement?.insertAdjacentHTML('beforeend', rowHTML);
         });
         setTimeout(() => {
-            const elements = document.querySelectorAll("tr[key]");
-            for (var i = 0; i < elements.length; i++) {
+            const elements = document.querySelectorAll('tr[key]');
+            for (let i = 0; i < elements.length; i++) {
                 elements[i].className = 'transition-shown';
             }
-        }, 0);
+        },         0);
     }
     const allUsers = data;
 
-    // Show dev tools
+  // Show dev tools
     const show = allUsers.filter(user => user.active)[0].name === 'Jon M Lamb';
-    // const show = false;
+  // const show = false;
     console.log('Show', show);
     if (show) {
         const tableHeader = <HTMLElement>document.querySelector('#tableheader');
         tableHeader.insertAdjacentHTML('beforeend', '<th scope="col" style="text-align: center;">Hits</th>');
     }
 
-    // Hide the spinner
+  // Hide the spinner
     if (allUsers.length > 0) {
         const spinnerElement = <HTMLElement>document.getElementsByClassName('spinner')[0];
         console.log('Spinner Element', spinnerElement);
         const transitionEnd = transitionEndEventName();
         console.log('Transition name', transitionEnd);
         spinnerElement.addEventListener(transitionEnd, addRowsCallback, false);
-        spinnerElement.className = 'spinner transition-hidden'
+        spinnerElement.className = 'spinner transition-hidden';
     }
 }
 
 function onWindowLoad() {
-    // @ts-ignore
+  // @ts-ignore
     chrome.instanceID.getID((deviceId) => {
-        fetch('https://netsuite-user-status.herokuapp.com/api/get-users?deviceId=' + deviceId)
-        .then((res) => res.json())
-        .then((data) => addUserRows(data));
+        fetch(`https://netsuite-user-status.herokuapp.com/api/get-users?deviceId=${deviceId}`)
+      .then(res => res.json())
+      .then(data => addUserRows(data));
     });
 }
 
