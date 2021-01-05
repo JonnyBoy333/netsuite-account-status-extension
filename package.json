@@ -12,5 +12,9 @@
         "@types/chrome": "~0.0.63",
         "tslint": "^5.9.1",
         "tslint-config-airbnb": "^5.8.0"
+    },
+    "dependencies": {
+        "@hitc/netsuite-types": "^2020.2.15",
+        "firebase": "^8.2.1"
     }
 }
