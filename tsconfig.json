@@ -1,28 +1,33 @@
 {
-    "compilerOptions": {
-        "watch": true,
-        "module": "commonjs",
-        "target": "es5",
-        "noImplicitAny": false,
-        "moduleResolution": "node",
-        "sourceMap": false,
-        "outDir": "dist",
-        "newLine": "LF",
-        "baseUrl": ".",
-        "noImplicitUseStrict": true,
-        "noUnusedLocals": false,
-        "paths": {
-            "*": [
-                "node_modules/*",
-                "src/types/*"
-            ]
-        }
-    },
-    "compileOnSave": true,
-    "exclude": [
-        "node_modules"
-    ],
-    "include": [
-        "src/**/*"
-    ]
+  "compilerOptions": {
+    "strict": true,
+    "watch": true,
+    "module": "CommonJS",
+    "target": "ESNext",
+    "noImplicitAny": false,
+    "moduleResolution": "Node",
+    "sourceMap": false,
+    "outDir": "dist",
+    "newLine": "LF",
+    "baseUrl": ".",
+    "paths": {
+      "N": [
+        "node_modules/@hitc/netsuite-types/N"
+      ],
+      "N/*": [
+        "node_modules/@hitc/netsuite-types/N/*"
+      ],
+      "*": [
+        "node_modules/*",
+        "src/types/*"
+      ]
+    }
+  },
+  "compileOnSave": true,
+  "exclude": [
+    "node_modules"
+  ],
+  "include": [
+    "src/**/*"
+  ]
 }
