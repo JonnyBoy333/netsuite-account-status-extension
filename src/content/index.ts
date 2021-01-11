@@ -1,5 +1,5 @@
 const url = document.location.href;
-console.log('URL', url);
+logger('URL', url);
 if (url.includes('/login/') || url.includes('/customerlogin')) {
   addUserStatusListener((response) => {
     logger('User Status Result', response);
@@ -7,7 +7,7 @@ if (url.includes('/login/') || url.includes('/customerlogin')) {
   });
   removeUserStatusListener();
 } else {
-  console.log('NetSuite User Status running...');
+  logger('NetSuite User Status running...');
   const statusObj = gatherUserData(document);
   if (statusObj) {
     sendStatusToBackground(statusObj);
@@ -28,7 +28,7 @@ function addUserStatusListener(callback: (response: any) => void) {
 
 function removeUserStatusListener() {
   window.addEventListener('beforeunload', () => {
-    console.log('Running beforeunload');
+    logger('Running beforeunload');
     chrome.runtime.sendMessage({ action: 'removeUserStatusListener' });
   });
 }
@@ -39,39 +39,38 @@ function addInputListener(document: Document, userDeviceId: string, url: string)
   let userStatuses: IUserStatusCache;
 
   chrome.storage.local.get(['nsUserStatus'], (result) => {
-    console.log('Value currently is ' + result.nsUserStatus);
+    logger('Initial user statuses', result.nsUserStatus);
     userStatuses = JSON.parse(result.nsUserStatus);
     const email = (<HTMLInputElement>document.getElementById('userName'))?.value;
-    console.log('Initial Email', email);
+    logger('Initial Email', email);
     displayUserMsg(email, userDeviceId, userStatuses);
   });
   chrome.storage.onChanged.addListener((changes) => {
-    console.log('User status storage changes', changes);
+    // logger('User status storage changes', changes);
     if (changes.nsUserStatus) {
       userStatuses = JSON.parse(changes.nsUserStatus.newValue);
-      console.log('User Statuses', userStatuses);
+      logger('Updated user Statuses', userStatuses);
       const email = (<HTMLInputElement>document.getElementById('userName'))?.value;
       displayUserMsg(email, userDeviceId, userStatuses);
     }
   });
 
-  // console.log('User Statuses', userStatuses);
+  // logger('User Statuses', userStatuses);
   document.getElementById('userName')?.addEventListener('keyup', (event) => {
-    console.log('Typing', (<HTMLInputElement>event.target).value);
+    // logger('Typing', (<HTMLInputElement>event.target).value);
     displayUserMsg((<HTMLInputElement>event.target).value, userDeviceId, userStatuses);
   });
 
   document.getElementById('userName')?.addEventListener('change', (event) => {
-    console.log('Entered', (<HTMLInputElement>event.target).value);
+    // logger('Entered', (<HTMLInputElement>event.target).value);
     displayUserMsg((<HTMLInputElement>event.target).value, userDeviceId, userStatuses);
   });
 }
 
 function displayUserMsg(email: string, userDeviceId: string, userStatuses: IUserStatusCache): void {
   if (userStatuses) {
-    console.log('Selected User Status', userStatuses[email]);
+    logger('Entered User Status', userStatuses[email]);
     const activeUser = userStatuses[email];
-    console.log('Device Ids', { userDeviceId, emailDeviceId: activeUser?.deviceId });
     // if (activeUser && userDeviceId !== activeUser.deviceId) { // Note: add this back when done testing
     if (activeUser) {
       displayActiveUserMsg(activeUser);
@@ -85,13 +84,12 @@ function displayActiveUserMsg(activeUser: IUser): void {
   const lastSeen = new Date(activeUser.lastSeenDate).getTime();
   const currentDate = new Date().getTime();
   const seenDifferenceObj = convertMS(currentDate - lastSeen);
-  console.log('Seen Difference', seenDifferenceObj);
+  logger('Seen Difference', seenDifferenceObj);
   const color = getColor(activeUser.status, seenDifferenceObj);
   const lastSeenTxt = generateLastSeenTxt(seenDifferenceObj);
   const hasActiveUser = activeUser.status === 'active' && seenDifferenceObj.m < 60 && seenDifferenceObj.h === 0 && seenDifferenceObj.d === 0;
-  console.log('Has Active User', hasActiveUser);
+  logger('Has Active User', hasActiveUser);
   const msgTxt = generateMsgText(hasActiveUser, activeUser.name, activeUser.account?.name, lastSeenTxt);
-  console.log('Last Seen Text', lastSeenTxt);
 
   const script = `
     var userStatusDiv = document.getElementById('user-status');
@@ -132,7 +130,6 @@ function addStatusElement(document: Document, btnId: string): void {
     if (userStatusEl) {
       userStatusEl.style.cssText = "border-radius: 3px; overflow: hidden; display: ${btnId === 'submitButton' ? 'inline-' : ''}block; text-align: center; color: #ffffff; margin-top: 10px; transition: opacity 0.5s ease-out, height 0.5s ease-out; opacity: 0; height: 0;";
       var btnWidth = loginBtn.offsetWidth;
-      console.log('Button Width', btnWidth);
       ${btnId === 'submitButton' ? 'userStatusEl.style.width = btnWidth + "px";' : ''}
     }
   `;
@@ -185,7 +182,7 @@ function addTimer() {
 function gatherUserData(document: Document): IUpdate | void {
   const ctxObj = retrieveContextObj(document);
   if (!ctxObj) return;
-  console.log('Context', ctxObj);
+  logger('Retreived user data', ctxObj);
   const date = new Date().toUTCString();
   const logoElements = document.getElementsByClassName('ns-logo');
   const domain = `https://${document.location.hostname}`;
@@ -221,6 +218,8 @@ function usingSharedLogin(name: string, email: string): boolean {
   return `${firstName}:${lastName}@bergankdv.com` === email;
 }
 
+
+// TODO: remove jQuery
 function retrieveContextObj(document: Document): IContextObj | void {
   const scriptContent = `
     if (window.nlapiGetContext) {
@@ -239,7 +238,7 @@ function retrieveContextObj(document: Document): IContextObj | void {
 }
 
 function injectScript(document: Document, scriptContent: string): void {
-  // console.log('Script Content', scriptContent);
+  // logger('Script Content', scriptContent);
   const script = document.createElement('script');
   script.id = 'tmpScript';
   script.appendChild(document.createTextNode(scriptContent));
@@ -257,7 +256,7 @@ function injectScript(document: Document, scriptContent: string): void {
 function getUserStatus(): statuses {
   let status: statuses = 'active';
   if (document.getElementById('timeoutpopup') && document.getElementById('timeoutpopup')?.style?.visibility !== 'hidden') {
-    console.log('Timeout popup is visible', document.getElementById('timeoutpopup')?.style);
+    logger('Timeout popup is visible', document.getElementById('timeoutpopup')?.style);
     status = 'inactive';
   }
   return status;
@@ -286,7 +285,7 @@ function convertMS(ms: number): { d: number, h: number, m: number, s: number } {
   return { d, h, m, s };
 }
 
-function logger(arg1: any, arg2: any): void {
+function logger(arg1: any, arg2?: any): void {
   console.log(arg1, arg2);
 }
 
