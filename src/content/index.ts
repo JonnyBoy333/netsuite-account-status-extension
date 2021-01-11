@@ -16,17 +16,6 @@ if (url.includes('/login/') || url.includes('/customerlogin')) {
   addLogoutListener();
 }
 
-// chrome.runtime.sendMessage({ action: 'test' }, (response) => {
-//   console.log('Response', response);
-// });
-
-// window.addEventListener('beforeunload', () => {
-//   console.log('Running beforeunload');
-//   chrome.runtime.sendMessage({ action: 'testunload' }, (response) => {
-//     console.log('Unload Response', response);
-//   });
-// });
-
 function addLogoutListener(): void {
   document.getElementById('ns-header-menu-userrole-item0')?.addEventListener('click', () => {
     chrome.runtime.sendMessage({ action: 'logout' });
@@ -79,7 +68,6 @@ function addInputListener(document: Document, userDeviceId: string, url: string)
 }
 
 function displayUserMsg(email: string, userDeviceId: string, userStatuses: IUserStatusCache): void {
-  // console.log('Typing', (<HTMLInputElement>event.target).value);
   if (userStatuses) {
     console.log('Selected User Status', userStatuses[email]);
     const activeUser = userStatuses[email];
@@ -178,12 +166,6 @@ function getColor(status: statuses, { d, h, m }: { d: number, h: number, m: numb
 function sendStatusToBackground(statusUpdate: IUpdate) {
   // Send it to the extension
   chrome.runtime.sendMessage({ action: 'updateStatus', source: statusUpdate });
-  // chrome.runtime.sendMessage({
-  //     action: 'test',
-  //     source: {}
-  // });
-
-  // console.log('Existing Interval', (<any>window).netsuite_status)
 }
 
 function addTimer() {
@@ -194,7 +176,6 @@ function addTimer() {
         interval = createInterval(document);
       } else if (document.hidden) {
         clearInterval(interval);
-        // interval = 0;
       }
     }, 5000);
     window.netsuite_status = anotherInterval;
@@ -288,14 +269,6 @@ function createInterval(document: Document) {
     if (statusObj) {
       sendStatusToBackground(statusObj);
     }
-    // console.log('Status', statusObj);
-
-    // Send it to the extension
-    // chrome.runtime.sendMessage({ action: 'updateStatus', source: statusObj });
-    // chrome.runtime.sendMessage({
-    //     action: 'test',
-    //     source: {}
-    // });
   }, 15000);
 }
 
