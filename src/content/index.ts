@@ -2,16 +2,18 @@ const url = document.location.href;
 console.log('URL', url);
 if (url.includes('/login/') || url.includes('/customerlogin')) {
   addUserStatusListener((response) => {
-    console.log('Response', response);
-    addInputListener(document, response.deviceId);
+    logger('User Status Result', response);
+    addInputListener(document, response.deviceId, url);
   });
-  
-  window.addEventListener('beforeunload', () => {
-    console.log('Running beforeunload');
-    chrome.runtime.sendMessage({ action: 'removeUserStatusListener' });
-  });
+  removeUserStatusListener();
 } else {
-  getStatus(document);
+  console.log('NetSuite User Status running...');
+  const statusObj = gatherUserData(document);
+  if (statusObj) {
+    sendStatusToBackground(statusObj);
+  }
+  addTimer();
+  addLogoutListener();
 }
 
 // chrome.runtime.sendMessage({ action: 'test' }, (response) => {
@@ -25,12 +27,26 @@ if (url.includes('/login/') || url.includes('/customerlogin')) {
 //   });
 // });
 
+function addLogoutListener(): void {
+  document.getElementById('ns-header-menu-userrole-item0')?.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ action: 'logout' });
+  });
+}
+
 function addUserStatusListener(callback: (response: any) => void) {
   chrome.runtime.sendMessage({ action: 'addUserStatusListener' }, callback);
 }
 
-function addInputListener(document: Document, userDeviceId: string): void {
-  addStatusElement(document);
+function removeUserStatusListener() {
+  window.addEventListener('beforeunload', () => {
+    console.log('Running beforeunload');
+    chrome.runtime.sendMessage({ action: 'removeUserStatusListener' });
+  });
+}
+
+function addInputListener(document: Document, userDeviceId: string, url: string): void {
+  const btnId = url.includes('/login/') ? 'login-submit' : 'submitButton'; 
+  addStatusElement(document, btnId);
   let userStatuses: IUserStatusCache;
 
   chrome.storage.local.get(['nsUserStatus'], (result) => {
@@ -45,6 +61,8 @@ function addInputListener(document: Document, userDeviceId: string): void {
     if (changes.nsUserStatus) {
       userStatuses = JSON.parse(changes.nsUserStatus.newValue);
       console.log('User Statuses', userStatuses);
+      const email = (<HTMLInputElement>document.getElementById('userName'))?.value;
+      displayUserMsg(email, userDeviceId, userStatuses);
     }
   });
 
@@ -62,7 +80,6 @@ function addInputListener(document: Document, userDeviceId: string): void {
 
 function displayUserMsg(email: string, userDeviceId: string, userStatuses: IUserStatusCache): void {
   // console.log('Typing', (<HTMLInputElement>event.target).value);
-  // if (userStatuses && userStatuses[email] && userStatuses[email].status !== 'inactive') {
   if (userStatuses) {
     console.log('Selected User Status', userStatuses[email]);
     const activeUser = userStatuses[email];
@@ -93,7 +110,8 @@ function displayActiveUserMsg(activeUser: IUser): void {
     if (userStatusDiv) {
       userStatusDiv.innerHTML = \`${msgTxt}\`;
       userStatusDiv.style.backgroundColor = '${color}';
-      userStatusDiv.classList.add('user-status-active');
+      userStatusDiv.style.opacity = 1;
+      userStatusDiv.style.height = 'auto';
     }
   `;
   injectScript(document, script);
@@ -106,39 +124,30 @@ function displayNoActiveUserMsg() {
   const script = `
     var userStatusDiv = document.getElementById('user-status');
     if (userStatusDiv) {
-      userStatusDiv.innerText = \`${msgTxt}\`;
+      userStatusDiv.innerHTML = \`${msgTxt}\`;
       userStatusDiv.style.backgroundColor = '${color}';
-      userStatusDiv.classList.add('user-status-active');
+      userStatusDiv.style.opacity = 1;
+      userStatusDiv.style.height = 'auto';
     }
   `;
   injectScript(document, script);
 }
 
-function addStatusElement(document: Document): void {
+function addStatusElement(document: Document, btnId: string): void {
   const html = `
-    <style>
-      .user-status {
-        border-radius: 3px;
-        overflow: hidden;
-        display: block;
-        text-align: center;
-        color: #ffffff;
-        margin-top: 10px;
-        transition: opacity 0.5s ease-out, height 0.5s ease-out;
-        opacity: 0;
-        height: 0;
-      }
-      .user-status-active {
-        opacity: 1;
-        height: auto;
-      }
-    </style>
-    <div class="user-status" id="user-status"></div>
+    <div id="user-status"></div>
   `;
   const script = `
-        var loginBtn = document.getElementById('login-submit');
-        if (loginBtn) loginBtn.insertAdjacentHTML('afterend', \`${html}\`);
-      `;
+    var loginBtn = document.getElementById('${btnId}');
+    if (loginBtn) loginBtn${btnId === 'submitButton' ? '.parentElement' : ''}.insertAdjacentHTML('afterend', \`${html}\`);
+    var userStatusEl = document.getElementById('user-status');
+    if (userStatusEl) {
+      userStatusEl.style.cssText = "border-radius: 3px; overflow: hidden; display: ${btnId === 'submitButton' ? 'inline-' : ''}block; text-align: center; color: #ffffff; margin-top: 10px; transition: opacity 0.5s ease-out, height 0.5s ease-out; opacity: 0; height: 0;";
+      var btnWidth = loginBtn.offsetWidth;
+      console.log('Button Width', btnWidth);
+      ${btnId === 'submitButton' ? 'userStatusEl.style.width = btnWidth + "px";' : ''}
+    }
+  `;
   injectScript(document, script);
 }
 
@@ -166,24 +175,18 @@ function getColor(status: statuses, { d, h, m }: { d: number, h: number, m: numb
   return color;
 }
 
-function getStatus(document: Document) {
-  console.log('NetSuite User Status running...');
-  // if (!document.getElementsByClassName('ns-role-company')[0]) return;
-
-  const statusObj = gatherData(document);
-  console.log('Status', statusObj);
-
+function sendStatusToBackground(statusUpdate: IUpdate) {
   // Send it to the extension
-  chrome.runtime.sendMessage({
-    action: 'updateStatus',
-    source: statusObj,
-  });
+  chrome.runtime.sendMessage({ action: 'updateStatus', source: statusUpdate });
   // chrome.runtime.sendMessage({
   //     action: 'test',
   //     source: {}
   // });
 
   // console.log('Existing Interval', (<any>window).netsuite_status)
+}
+
+function addTimer() {
   if (!window.netsuite_status) {
     let interval: NodeJS.Timeout;
     const anotherInterval = setInterval(() => {
@@ -198,8 +201,7 @@ function getStatus(document: Document) {
   }
 }
 
-function gatherData(document: Document): IUpdate | void {
-  // console.log('Window', Object.keys(window));
+function gatherUserData(document: Document): IUpdate | void {
   const ctxObj = retrieveContextObj(document);
   if (!ctxObj) return;
   console.log('Context', ctxObj);
@@ -282,14 +284,14 @@ function getUserStatus(): statuses {
 
 function createInterval(document: Document) {
   return setInterval(() => {
-    const statusObj = gatherData(document);
+    const statusObj = gatherUserData(document);
+    if (statusObj) {
+      sendStatusToBackground(statusObj);
+    }
     // console.log('Status', statusObj);
 
     // Send it to the extension
-    chrome.runtime.sendMessage({
-      action: 'updateStatus',
-      source: statusObj,
-    });
+    // chrome.runtime.sendMessage({ action: 'updateStatus', source: statusObj });
     // chrome.runtime.sendMessage({
     //     action: 'test',
     //     source: {}
@@ -309,6 +311,10 @@ function convertMS(ms: number): { d: number, h: number, m: number, s: number } {
   const d = Math.floor(h / 24);
   h = h % 24;
   return { d, h, m, s };
+}
+
+function logger(arg1: any, arg2: any): void {
+  console.log(arg1, arg2);
 }
 
 type statuses = 'active' | 'idle' | 'inactive';
