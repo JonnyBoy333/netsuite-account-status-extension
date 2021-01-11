@@ -2,7 +2,7 @@ const url = document.location.href;
 logger('URL', url);
 if (url.includes('/login/') || url.includes('/customerlogin')) {
   addUserStatusListener((response) => {
-    logger('User Status Result', response);
+    logger('Firebase listener result', response);
     addInputListener(document, response.deviceId, url);
   });
   removeUserStatusListener();
