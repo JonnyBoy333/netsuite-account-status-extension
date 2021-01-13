@@ -25,7 +25,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     getDeviceId()
       .then(async (deviceId: string) => {
         data.user.deviceId = deviceId;
-        console.log('User', data);
+        logger('User', data);
 
         const accountDocId = await addUpdateAccountDoc(db, data);
         if (accountDocId) {
@@ -44,18 +44,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         userStatuses[firebaseUser.email] = convertToUser(firebaseUser);
       });
       updateStorage(userStatuses);
-      console.log('Users', userStatuses);
+      logger('Users', userStatuses);
 
       snapshot.docChanges().forEach((change) => {
-        // console.log('Storage', chrome.storage);
+        // logger('Storage', chrome.storage);
+        const changedDoc = <IFirebaseUser>change.doc.data();
         if (change.type === 'added' || change.type === 'modified') {
-          console.log('Updated user:', change.doc.data());
-          const changedDoc = <IFirebaseUser>change.doc.data();
+          logger('Updated user:', change.doc.data());
           userStatuses[changedDoc.email] = convertToUser(changedDoc);
         }
         if (change.type === 'removed') {
-          console.log('Removed user:', change.doc.data());
-          const changedDoc = <IFirebaseUser>change.doc.data();
+          logger('Removed user:', change.doc.data());
           delete userStatuses[changedDoc.email];
         }
         updateStorage(userStatuses);
@@ -67,22 +66,39 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === 'removeUserStatusListener') {
-    console.log('Unsubscribing', unsubscribe);
+    logger('Unsubscribing', unsubscribe);
     if (unsubscribe) unsubscribe();
     sendResponse('Removed listener');
   }
 
+  if (request.action === 'logout') {
+    logger('Logging out');
+    getDeviceId()
+      .then(async (deviceId: string) => {
+        await inactivateUser(db, deviceId);
+        sendResponse('Logged Out');
+      });
+  }
+
   // if (request.action === 'test') {
-  //   console.log('Testing');
+  //   logger('Testing');
   //   test().then(sendResponse);
   // }
 
   // if (request.action === 'testunload') {
-  //   console.log('Unloading');
+  //   logger('Unloading');
   //   return 'Unloaded';
   // }
   return true;
 });
+
+async function inactivateUser(db: firebase.firestore.Firestore, deviceId: string): Promise<void> {
+  const userCollection = db.collection('users');
+  const userSnap = await userCollection.where('deviceId', '==', deviceId).get();
+  userSnap.forEach((doc) => {
+    userCollection.doc(doc.id).update({ status: 'inactive' });
+  });
+}
 
 function getDeviceId(): Promise<string> {
   return new Promise((resolve) => {
@@ -107,7 +123,7 @@ function convertToUser(firebaseUser: IFirebaseUser): IUser {
 //     let account;
 //     accountSnap.forEach(doc => {
 //       account = doc.data();
-//       console.log(account);
+//       logger(account);
 //     });
 //     resolve(account);
 //   });
@@ -121,8 +137,7 @@ async function addUpdateAccountDoc(db: firebase.firestore.Firestore, data: IUpda
   let accountDocId: string | undefined;
   const accountCollection = db.collection('accounts');
   const accountSnap = await accountCollection.where('accountNum', '==', data.accountNum).get();
-  console.log('Accounts', accountSnap);
-  console.log('Count', accountSnap.empty);
+  logger('Account exists', !accountSnap.empty);
   if (accountSnap.empty) {
     accountDocId = await createAccount(accountCollection, data);
   } else {
@@ -186,7 +201,6 @@ async function createUser(userCollection: firebase.firestore.CollectionReference
 
 async function updateDeviceId(userCollection: firebase.firestore.CollectionReference<firebase.firestore.DocumentData>, userSnap: firebase.firestore.QuerySnapshot<firebase.firestore.DocumentData>, data: IUpdate['user']): Promise<void> {
   userSnap.forEach((doc) => {
-    doc.id;
     userCollection.doc(doc.id).update({
       email: data.email,
       name: data.name,
@@ -198,16 +212,19 @@ async function updateDeviceId(userCollection: firebase.firestore.CollectionRefer
 
 async function updateUser(userCollection: firebase.firestore.CollectionReference<firebase.firestore.DocumentData>, userSnap: firebase.firestore.QuerySnapshot<firebase.firestore.DocumentData>, data: IUpdate['user'], accountDocId: string, accountName: string): Promise<void> {
   userSnap.forEach((doc) => {
-    doc.id;
     userCollection.doc(doc.id).update({
       account: { id: accountDocId, name: accountName },
       email: data.email,
       environment: data.environment,
       lastSeenDate: firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate)),
-      name: data.name,
       status: data.status,
       url: data.url,
       usingSharedLogin: data.usingSharedLogin,
     });
   });
+}
+
+function logger(arg1: unknown, arg2?: unknown): void {
+  // eslint-disable-next-line no-console
+  console.log(arg1, arg2);
 }
