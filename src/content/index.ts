@@ -22,7 +22,7 @@ function addLogoutListener(): void {
   });
 }
 
-function addUserStatusListener(callback: (response: any) => void) {
+function addUserStatusListener(callback: (response: { response: string, deviceId: string }) => void) {
   chrome.runtime.sendMessage({ action: 'addUserStatusListener' }, callback);
 }
 
@@ -218,8 +218,6 @@ function usingSharedLogin(name: string, email: string): boolean {
   return `${firstName}:${lastName}@bergankdv.com` === email;
 }
 
-
-// TODO: remove jQuery
 function retrieveContextObj(document: Document): IContextObj | void {
   const scriptContent = `
     if (window.nlapiGetContext) {
@@ -231,7 +229,7 @@ function retrieveContextObj(document: Document): IContextObj | void {
         environment: context.getEnvironment(),
         userId: context.getUser(),
       }
-      jQuery('body').attr('tmp_context', JSON.stringify(ctxObj));
+      document.getElementsByTagName('BODY')[0].setAttribute('tmp_context', JSON.stringify(ctxObj));
     }
   `;
   return injectScript(document, scriptContent);
@@ -285,7 +283,8 @@ function convertMS(ms: number): { d: number, h: number, m: number, s: number } {
   return { d, h, m, s };
 }
 
-function logger(arg1: any, arg2?: any): void {
+function logger(arg1: unknown, arg2?: unknown): void {
+  // eslint-disable-next-line no-console
   console.log(arg1, arg2);
 }
 
