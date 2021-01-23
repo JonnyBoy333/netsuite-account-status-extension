@@ -1,5 +1,5 @@
 {
-  "name": "user-status-chrome",
+  "name": "account-status-chrome",
   "version": "1.0.0",
   "description": "Used to show which NetSuite accounts users are in",
   "main": "index.js",
@@ -7,9 +7,9 @@
     "watch:bg": "parcel watch src/background/index.ts -d dist/background",
     "watch:content": "parcel watch src/content/index.ts -d dist/content",
     "watch:popup": "parcel watch src/popup/index.html -d dist/popup --public-url ./",
-    "build:bg": "parcel build src/background/index.ts -d dist/background",
-    "build:content": "parcel build src/content/index.ts -d dist/content",
-    "build:popup": "parcel build src/popup/index.html -d dist/popup --public-url ./",
+    "build:bg": "parcel build src/background/index.ts -d dist/background --no-source-maps",
+    "build:content": "parcel build src/content/index.ts -d dist/content --no-source-maps",
+    "build:popup": "parcel build src/popup/index.html -d dist/popup --public-url ./ --no-source-maps",
     "build": "npm run build:bg && npm run build:content && npm run build:popup",
     "clean": "rimraf dist",
     "copy:static": "copyfiles manifest.json assets/**/* dist",
@@ -17,12 +17,20 @@
     "lint": "eslint --ext .ts,.tsx ./src"
   },
   "license": "MIT",
+  "dependencies": {
+    "@babel/runtime": "^7.12.5",
+    "firebase": "^8.2.1",
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1",
+    "react-flip-toolkit": "^7.0.13"
+  },
   "devDependencies": {
     "@babel/core": "^7.9.6",
     "@babel/plugin-transform-runtime": "^7.12.10",
     "@babel/preset-env": "^7.9.6",
     "@babel/preset-typescript": "^7.9.0",
     "@types/chrome": "^0.0.128",
+    "@types/lodash": "^4.14.167",
     "@types/node": "^14.0.5",
     "@types/react-dom": "^16.9.8",
     "@types/styled-components": "^5.1.0",
@@ -31,16 +39,9 @@
     "copyfiles": "^2.2.0",
     "eslint": "^7.1.0",
     "eslint-plugin-react": "^7.20.0",
+    "lodash": "^4.17.20",
     "parcel-bundler": "^1.12.4",
     "rimraf": "^3.0.2",
-    "sass": "^1.26.5",
     "typescript": "^4.1.3"
-  },
-  "dependencies": {
-    "@babel/runtime": "^7.12.5",
-    "firebase": "^8.2.1",
-    "react": "^16.13.1",
-    "react-dom": "^16.13.1",
-    "styled-components": "^5.1.0"
   }
 }
