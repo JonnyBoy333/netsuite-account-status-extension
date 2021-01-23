@@ -13,7 +13,7 @@ chrome.runtime.onMessage.addListener((request, _, sendResponse) => {
     getDeviceId()
       .then(async (deviceId: string) => {
         data.user.deviceId = deviceId;
-        // logger('User', data);
+        logger('User', data);
 
         const accountDocId = await addUpdateAccountDoc(db, data);
         if (accountDocId) {
@@ -34,7 +34,6 @@ chrome.runtime.onMessage.addListener((request, _, sendResponse) => {
       logger('Users', userStatuses);
 
       snapshot.docChanges().forEach((change) => {
-        // logger('Storage', chrome.storage);
         const changedDoc = <IFirebaseUser>change.doc.data();
         if (change.type === 'added' || change.type === 'modified') {
           logger('Updated user:', change.doc.data());
@@ -89,17 +88,12 @@ async function inactivateUser(db: firebase.firestore.Firestore, deviceId: string
 
 function getDeviceId(): Promise<string> {
   return new Promise((resolve) => {
-    // @ts-ignore
+    // @ts-ignore instanceID does exist here
     chrome.instanceID.getID((deviceId: string) => {
       resolve(deviceId);
     });
   });
 }
-
-// export function convertToUser<T extends IUser>(firebaseUser: IFirebaseUser): T {
-//   return { ...firebaseUser, lastSeenDate: firebaseUser.lastSeenDate.toDate().toUTCString() };
-//   // return firebaseUser;
-// }
 
 // async function test() {
 //   const accountSnap = await db.collection('accounts')
@@ -125,7 +119,6 @@ async function addUpdateAccountDoc(db: firebase.firestore.Firestore, data: IUpda
   let accountDocId: string | undefined;
   if (!data.accountName) return accountDocId;
   const accountCollection = db.collection('accounts');
-  // createUpdateAccount(accountCollection, data);
   const updateObj: { accountName: string, accountNum: string, logoUrl: string, lastSeenDate?: firebase.firestore.Timestamp } = {
     accountName: data.accountName,
     accountNum: data.accountNum,
@@ -136,14 +129,6 @@ async function addUpdateAccountDoc(db: firebase.firestore.Firestore, data: IUpda
   }
   // This can be asyncronous
   accountCollection.doc(data.accountNum).set(updateObj, { merge: true });
-  // const accountSnap = await accountCollection.where('accountNum', '==', data.accountNum).get();
-  // if (accountSnap.empty) {
-  //   logger(`${new Date().toTimeString()} Creating account ${data.accountNum}`, data);
-  //   logger(`Account snap is empty ${accountSnap.empty}`, accountSnap.docs);
-  //   accountDocId = await createAccount(accountCollection, data);
-  // } else {
-  //   accountDocId = updateAccount(accountCollection, accountSnap, data);
-  // }
   return data.accountNum;
 }
 
@@ -152,29 +137,27 @@ async function addUpdateUserDoc(db: firebase.firestore.Firestore, data: IUpdate,
 
   if (!data.user.userId) return;
   if (data.isBergankdv) {
-    userCollection.doc(data.user.userId).set({
-      deviceId: data.user.deviceId,
-      email: data.user.email,
-      userId: data.user.userId,
-      name: data.user.name,
-      status: data.user.status,
-    }, { merge: true, mergeFields: ['email', 'name', 'status'] });
-    // const userSnap = await userCollection.where('userId', '==', data.user.userId).get();
-    // if (userSnap.empty) {
-    //   createUser(userCollection, data.user);
-    // } else {
-    //   updateDeviceId(userCollection, userSnap, data.user);
-    // }
+    logger('Creating account', data);
+    // Create or update the user, updates only effect email, name and status
+    const userDoc = await userCollection.doc(data.user.userId).get();
+    if (userDoc.exists) {
+      userCollection.doc(data.user.userId).update({
+        email: data.user.email,
+        name: data.user.name,
+        status: data.user.status,
+      });
+    } else {
+      userCollection.doc(data.user.userId).set({
+        deviceId: data.user.deviceId,
+        email: data.user.email,
+        userId: data.user.userId,
+        name: data.user.name,
+        status: data.user.status,
+      });
+    }
   } else {
-    // userCollection.doc(data.user.userId).update({
-    //   account: { id: accountDocId, name: accountName },
-    //   email: data.user.email,
-    //   environment: data.user.environment,
-    //   lastSeenDate: firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate)),
-    //   status: data.user.status,
-    //   url: data.user.url,
-    //   usingSharedLogin: data.user.usingSharedLogin,
-    // });
+    // Update the account the user is logged into based on their device id
+    logger('Updating account', data);
     const userSnap = await userCollection.where('deviceId', '==', data.user.deviceId).get();
     if (!userSnap.empty) {
       userSnap.forEach((doc) => {
@@ -188,122 +171,9 @@ async function addUpdateUserDoc(db: firebase.firestore.Firestore, data: IUpdate,
           usingSharedLogin: data.user.usingSharedLogin,
         });
       });
-      // updateUser(userCollection, userSnap, data.user, accountDocId, accountName);
     }
   }
 }
-
-// async function createUpdateAccount(accountCollection: firebase.firestore.CollectionReference<firebase.firestore.DocumentData>, data: IUpdate): Promise<string> {
-//   const updateObj: { accountName: string, accountNum: string, logoUrl: string, lastSeenDate?: firebase.firestore.Timestamp } = {
-//     accountName: data.accountName,
-//     accountNum: data.accountNum,
-//     logoUrl: data.logoUrl,
-//   };
-//   if (data.user.status !== 'inactive') {
-//     updateObj.lastSeenDate = firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate));
-//   }
-//   // This can be asyncronous
-//   accountCollection.doc(data.accountNum).set(updateObj, { merge: true });
-//   return data.accountNum;
-// }
-
-// async function createAccount(accountCollection: firebase.firestore.CollectionReference<firebase.firestore.DocumentData>, data: IUpdate): Promise<string> {
-//   // const accountDoc = await accountCollection.add({
-//   //   accountName: data.accountName,
-//   //   accountNum: data.accountNum,
-//   //   lastSeenDate: firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate)),
-//   //   logoUrl: data.logoUrl,
-//   //   dateCreated: firebase.firestore.Timestamp.fromDate(new Date()),
-//   //   fullData: JSON.stringify(data),
-//   // });
-//   // This can be asyncronous
-//   const updateObj: { accountName: string, accountNum: string, logoUrl: string, lastSeenDate?: firebase.firestore.Timestamp } = {
-//     accountName: data.accountName,
-//     accountNum: data.accountNum,
-//     logoUrl: data.logoUrl,
-//     // dateCreated: firebase.firestore.Timestamp.fromDate(new Date()),
-//     // fullData: JSON.stringify(data),
-//   };
-//   if (data.user.status !== 'inactive') {
-//     updateObj.lastSeenDate = firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate));
-//   }
-//   accountCollection.doc(data.accountNum).set(updateObj, { merge: true });
-//   return data.accountNum;
-// }
-
-// function updateAccount(accountCollection: firebase.firestore.CollectionReference<firebase.firestore.DocumentData>, accountSnap: firebase.firestore.QuerySnapshot<firebase.firestore.DocumentData>, data: IUpdate): string | undefined {
-//   let accountDocId: string | undefined;
-//   // accountSnap.forEach((doc) => {
-//   //   const updateObj: { accountName: string, logoUrl: string, lastSeenDate?: firebase.firestore.Timestamp } = {
-//   //     accountName: data.accountName,
-//   //     logoUrl: data.logoUrl,
-//   //   };
-//   //   if (data.user.status !== 'inactive') {
-//   //     updateObj.lastSeenDate = firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate));
-//   //   }
-//   //   accountCollection.doc(doc.id).update(updateObj);
-//   //   accountDocId = doc.id;
-//   // });
-//   const updateObj: { accountName: string, logoUrl: string, lastSeenDate?: firebase.firestore.Timestamp } = {
-//     accountName: data.accountName,
-//     logoUrl: data.logoUrl,
-//   };
-//   if (data.user.status !== 'inactive') {
-//     updateObj.lastSeenDate = firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate));
-//   }
-//   accountCollection.doc(data.accountNum).update(updateObj);
-//   return data.accountNum;
-// }
-
-// async function createUpdateUser(userCollection: firebase.firestore.CollectionReference<firebase.firestore.DocumentData>, data: IUpdate['user']): Promise<string> {
-//   const userDoc = await userCollection.add({
-//     deviceId: data.deviceId,
-//     email: data.email,
-//     userId: data.userId,
-//     // lastSeenDate: firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate)),
-//     name: data.name,
-//     status: data.status,
-//   });
-//   return userDoc.id;
-// }
-
-// async function createUser(userCollection: firebase.firestore.CollectionReference<firebase.firestore.DocumentData>, data: IUpdate['user']): Promise<string> {
-//   const userDoc = await userCollection.add({
-//     deviceId: data.deviceId,
-//     email: data.email,
-//     userId: data.userId,
-//     // lastSeenDate: firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate)),
-//     name: data.name,
-//     status: data.status,
-//   });
-//   return userDoc.id;
-// }
-
-// async function updateDeviceId(userCollection: firebase.firestore.CollectionReference<firebase.firestore.DocumentData>, userSnap: firebase.firestore.QuerySnapshot<firebase.firestore.DocumentData>, data: IUpdate['user']): Promise<void> {
-//   userSnap.forEach((doc) => {
-//     userCollection.doc(doc.id).update({
-//       deviceId: data.deviceId,
-//       email: data.email,
-//       userId: data.userId,
-//       name: data.name,
-//       status: data.status,
-//     });
-//   });
-// }
-
-// async function updateUser(userCollection: firebase.firestore.CollectionReference<firebase.firestore.DocumentData>, userSnap: firebase.firestore.QuerySnapshot<firebase.firestore.DocumentData>, data: IUpdate['user'], accountDocId: string, accountName: string): Promise<void> {
-//   userSnap.forEach((doc) => {
-//     userCollection.doc(doc.id).update({
-//       account: { id: accountDocId, name: accountName },
-//       email: data.email,
-//       environment: data.environment,
-//       lastSeenDate: firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate)),
-//       status: data.status,
-//       url: data.url,
-//       usingSharedLogin: data.usingSharedLogin,
-//     });
-//   });
-// }
 
 function logger(arg1: unknown, arg2?: unknown): void {
   // eslint-disable-next-line no-console
