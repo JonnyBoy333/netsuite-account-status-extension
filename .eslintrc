@@ -33,13 +33,18 @@
       "env": {
         "jest": true
       }
-    }
+    },
+    {
+      "files": ["**/*.tsx"],
+      "rules": {
+          "react/prop-types": "off"
+      }
+  }
   ],
   "globals": {
     "chrome": true
   },
   "rules": {
-    
     "curly": ["error", "multi-line"],
     "quotes": ["error", "single", { "allowTemplateLiterals": true }],
     "semi": ["error", "always"],
