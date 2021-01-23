@@ -1,15 +1,15 @@
 import React, { FC, useEffect, useState } from 'react';
 import { Flipper } from 'react-flip-toolkit';
 import db from '../firebase';
-import { IAccount, IFirebaseAccount, IFirebaseUser, IUser } from 'src/content';
-import { shuffle } from 'lodash';
+import { IAccount, IFirebaseAccount, IFirebaseUser, IUser } from '../../typings';
+// import { shuffle } from 'lodash';
 import Card from './Card';
 import './styles.css';
 
 const App: FC = () => {
   const [users, setUsers] = useState<IUser[]>([]);
   const [accounts, setAccounts] = useState<IAccount[]>([]);
-  const shuffleList = () => setAccounts(shuffle(accounts));
+  // const shuffleList = () => setAccounts(shuffle(accounts));
   useEffect(() => {
     const unsubscribe = db.collection('users').onSnapshot((snapshot) => {
       const users: IUser[] = [];
@@ -58,7 +58,7 @@ const App: FC = () => {
   return (
     <div className='container'>
       <Flipper flipKey={accounts.map((account) => account.accountNum).join('')}>
-        <button onClick={shuffleList}> shuffle</button>
+        {/* <button onClick={shuffleList}> shuffle</button> */}
         <div className='flex-container'>
           <div className='center'><h1>NetSuite Account Status</h1></div>
           {accounts.length === 0 && users.length === 0

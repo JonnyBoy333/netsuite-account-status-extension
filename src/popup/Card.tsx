@@ -1,6 +1,7 @@
 import React, { FC, Fragment } from 'react';
 import { Flipped } from 'react-flip-toolkit';
-import { convertMS, generateLastSeenTxt, IAccount, IUser } from '../content';
+import { convertMS, generateLastSeenTxt } from '../content';
+import { IAccount, IUser } from '../../typings';
 import './styles.css';
 
 interface IProps extends IAccount {

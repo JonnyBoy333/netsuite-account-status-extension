@@ -1,3 +1,5 @@
+import { statuses, IUserStatusCache, IUser, IUpdate, IContextObj } from '../../typings';
+
 const url = document.location.href;
 logger('URL', url);
 if (url.includes('/login/') || url.includes('/customerlogin')) {
@@ -46,7 +48,6 @@ function addInputListener(document: Document, userDeviceId: string, url: string)
     displayUserMsg(email, userDeviceId, userStatuses);
   });
   chrome.storage.onChanged.addListener((changes) => {
-    // logger('User status storage changes', changes);
     if (changes.nsUserStatus) {
       userStatuses = JSON.parse(changes.nsUserStatus.newValue);
       logger('Updated user Statuses', userStatuses);
@@ -57,12 +58,10 @@ function addInputListener(document: Document, userDeviceId: string, url: string)
 
   // logger('User Statuses', userStatuses);
   document.getElementById('userName')?.addEventListener('keyup', (event) => {
-    // logger('Typing', (<HTMLInputElement>event.target).value);
     displayUserMsg((<HTMLInputElement>event.target).value, userDeviceId, userStatuses);
   });
 
   document.getElementById('userName')?.addEventListener('change', (event) => {
-    // logger('Entered', (<HTMLInputElement>event.target).value);
     displayUserMsg((<HTMLInputElement>event.target).value, userDeviceId, userStatuses);
   });
 }
@@ -187,7 +186,8 @@ function gatherUserData(document: Document): IUpdate | void {
   const logoElements = document.getElementsByClassName('ns-logo');
   const domain = `https://${document.location.hostname}`;
   const logoUrl = domain + logoElements[logoElements.length - 1].firstElementChild?.getAttribute('src');
-  const accountName = document.getElementsByClassName('ns-role-company')[0].innerHTML;
+  let accountName = document.getElementsByClassName('ns-role-company')[0].innerHTML;
+  accountName = accountName.replace(/\s\S*SB.*\w*/g, ''); // Remove Sandbox identifiers at the end of the name
   const accountNum = ctxObj.accountNum.includes('_') ? ctxObj.accountNum.split('_')[0] : ctxObj.accountNum;
 
   const updateBody: IUpdate = {
@@ -215,9 +215,7 @@ function usingSharedLogin(name: string, email: string): boolean {
   const nameArr = name.split(' ');
   const firstName = nameArr[0]?.toLowerCase();
   const lastName = nameArr.length > 2 ? nameArr[2]?.toLowerCase() : nameArr[1]?.toLowerCase();
-  // logger('Name', { firstName, lastName });
-  // logger('Email', email);
-  return `${firstName}:${lastName}@bergankdv.com` !== email;
+  return `${firstName}.${lastName}@bergankdv.com` !== email;
 }
 
 function retrieveContextObj(document: Document): IContextObj | void {
@@ -288,65 +286,4 @@ export function convertMS(ms: number): { d: number, h: number, m: number, s: num
 function logger(arg1: unknown, arg2?: unknown): void {
   // eslint-disable-next-line no-console
   console.log(arg1, arg2);
-}
-
-type statuses = 'active' | 'idle' | 'inactive';
-
-interface IBaseUser {
-  account?: { id: string; name: string; }
-  deviceId: string;
-  name: string;
-  email: string;
-  environment: 'PRODUCTION' | 'SANDBOX';
-  status: statuses;
-  url: string;
-  userId: string;
-  usingSharedLogin: boolean;
-}
-
-export interface IFirebaseUser extends IBaseUser {
-  lastSeenDate: firebase.default.firestore.Timestamp;
-}
-
-export interface IUser extends IBaseUser {
-  lastSeenDate: string;
-}
-
-interface IBaseAccount {
-  accountName: string;
-  accountNum: string;
-  logoUrl: string;
-}
-export interface IFirebaseAccount extends IBaseAccount {
-  lastSeenDate: firebase.default.firestore.Timestamp;
-}
-
-export interface IAccount extends IBaseAccount {
-  lastSeenDate: string;
-  id: string;
-}
-
-export interface IUpdate {
-  accountNum: string;
-  lastSeenDate: string;
-  logoUrl: string;
-  accountName: string;
-  isBergankdv: boolean;
-  user: IUser;
-}
-
-interface IContextObj {
-  accountNum: string;
-  name: string;
-  email: string;
-  environment: 'PRODUCTION' | 'SANDBOX';
-  userId: string;
-}
-
-export interface IUserStatusCache {
-  [email: string]: IUser
-}
-
-declare global {
-  interface Window { netsuite_status: NodeJS.Timeout | undefined }
 }

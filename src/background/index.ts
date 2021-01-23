@@ -1,4 +1,4 @@
-import { IFirebaseUser, IUpdate, IUserStatusCache } from 'src/content';
+import { IFirebaseUser, IUpdate, IUserStatusCache } from '../../typings';
 import firebase from 'firebase/app';
 import db from '../firebase';
 
@@ -65,16 +65,6 @@ chrome.runtime.onMessage.addListener((request, _, sendResponse) => {
         sendResponse('Logged Out');
       });
   }
-
-  // if (request.action === 'test') {
-  //   logger('Testing');
-  //   test().then(sendResponse);
-  // }
-
-  // if (request.action === 'testunload') {
-  //   logger('Unloading');
-  //   return 'Unloaded';
-  // }
   return true;
 });
 
@@ -94,22 +84,6 @@ function getDeviceId(): Promise<string> {
     });
   });
 }
-
-// async function test() {
-//   const accountSnap = await db.collection('accounts')
-//     .where('accountNum', '==', '3499441')
-//     .limit(1)
-//     .get();
-
-//   return new Promise((resolve) => {
-//     let account;
-//     accountSnap.forEach(doc => {
-//       account = doc.data();
-//       logger(account);
-//     });
-//     resolve(account);
-//   });
-// }
 
 function updateStorage(userStatuses: IUserStatusCache): void {
   chrome.storage.local.set({ nsUserStatus: JSON.stringify(userStatuses) });
