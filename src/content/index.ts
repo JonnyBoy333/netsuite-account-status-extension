@@ -6,7 +6,7 @@ if (url.includes('/login/') || url.includes('/customerlogin')) {
     addInputListener(document, response.deviceId, url);
   });
   removeUserStatusListener();
-} else {
+} else if (url.includes('netsuite')) {
   logger('NetSuite User Status running...');
   const statusObj = gatherUserData(document);
   if (statusObj) {
@@ -69,10 +69,9 @@ function addInputListener(document: Document, userDeviceId: string, url: string)
 
 function displayUserMsg(email: string, userDeviceId: string, userStatuses: IUserStatusCache): void {
   if (userStatuses) {
-    logger('Entered User Status', userStatuses[email]);
-    const activeUser = userStatuses[email];
-    // if (activeUser && userDeviceId !== activeUser.deviceId) { // Note: add this back when done testing
-    if (activeUser) {
+    logger('Entered User Status', userStatuses[email.toLowerCase()]);
+    const activeUser = userStatuses[email.toLowerCase()];
+    if (activeUser && userDeviceId !== activeUser.deviceId) {
       displayActiveUserMsg(activeUser);
     } else {
       displayNoActiveUserMsg();
@@ -136,7 +135,7 @@ function addStatusElement(document: Document, btnId: string): void {
   injectScript(document, script);
 }
 
-function generateLastSeenTxt(seenDifferenceObj: { d: number, h: number, m: number, s: number }): string {
+export function generateLastSeenTxt(seenDifferenceObj: { d: number, h: number, m: number, s: number }): string {
   let seenDifference = '';
   if (seenDifferenceObj.d > 0) seenDifference += `${seenDifferenceObj.d} day${seenDifferenceObj.d === 1 ? '' : 's'}`;
   else if (seenDifferenceObj.h > 0) seenDifference += `${seenDifferenceObj.h} hour${seenDifferenceObj.h === 1 ? '' : 's'}`;
@@ -167,12 +166,13 @@ function sendStatusToBackground(statusUpdate: IUpdate) {
 
 function addTimer() {
   if (!window.netsuite_status) {
-    let interval: NodeJS.Timeout;
+    let interval: NodeJS.Timeout | undefined;
     const anotherInterval = setInterval(() => {
       if (!document.hidden && !interval) {
         interval = createInterval(document);
-      } else if (document.hidden) {
+      } else if (document.hidden && interval) {
         clearInterval(interval);
+        interval = undefined; // Clear the interval so that it can be restarted when returning to a tab
       }
     }, 5000);
     window.netsuite_status = anotherInterval;
@@ -215,7 +215,9 @@ function usingSharedLogin(name: string, email: string): boolean {
   const nameArr = name.split(' ');
   const firstName = nameArr[0]?.toLowerCase();
   const lastName = nameArr.length > 2 ? nameArr[2]?.toLowerCase() : nameArr[1]?.toLowerCase();
-  return `${firstName}:${lastName}@bergankdv.com` === email;
+  // logger('Name', { firstName, lastName });
+  // logger('Email', email);
+  return `${firstName}:${lastName}@bergankdv.com` !== email;
 }
 
 function retrieveContextObj(document: Document): IContextObj | void {
@@ -269,7 +271,7 @@ function createInterval(document: Document) {
   }, 15000);
 }
 
-function convertMS(ms: number): { d: number, h: number, m: number, s: number } {
+export function convertMS(ms: number): { d: number, h: number, m: number, s: number } {
   let h: number;
   let m: number;
   let s: number;
@@ -295,7 +297,7 @@ interface IBaseUser {
   deviceId: string;
   name: string;
   email: string;
-  environment: string;
+  environment: 'PRODUCTION' | 'SANDBOX';
   status: statuses;
   url: string;
   userId: string;
@@ -308,6 +310,20 @@ export interface IFirebaseUser extends IBaseUser {
 
 export interface IUser extends IBaseUser {
   lastSeenDate: string;
+}
+
+interface IBaseAccount {
+  accountName: string;
+  accountNum: string;
+  logoUrl: string;
+}
+export interface IFirebaseAccount extends IBaseAccount {
+  lastSeenDate: firebase.default.firestore.Timestamp;
+}
+
+export interface IAccount extends IBaseAccount {
+  lastSeenDate: string;
+  id: string;
 }
 
 export interface IUpdate {
@@ -323,7 +339,7 @@ interface IContextObj {
   accountNum: string;
   name: string;
   email: string;
-  environment: string;
+  environment: 'PRODUCTION' | 'SANDBOX';
   userId: string;
 }
 
