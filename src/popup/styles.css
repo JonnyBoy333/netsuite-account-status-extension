@@ -118,7 +118,7 @@ h1 {
 
 .grid-container {
   display: inline-grid;
-  grid-template-columns: 100px 50px auto auto auto;
+  grid-template-columns: 100px max-content auto auto auto;
   padding: 8px;
   border: 1px solid rgba(0,0,0,0.2);
   border-radius: 5px;
