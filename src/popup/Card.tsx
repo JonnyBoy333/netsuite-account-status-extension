@@ -28,8 +28,7 @@ const Card: FC<IProps> = ({ accountNum, accountName, logoUrl, lastSeenDate, user
           return (
             <Fragment key={user.userId}>
               <div className='grid-item user-item' key={user.userId}>{user.name}</div>
-              <div className='grid-item user-item' key={user.userId}>{environment}</div>
-              <div className='grid-item user-item' key={user.userId}>{user.email}{user.usingSharedLogin && sharedLoginPill}</div>
+              <div className='grid-item user-item' key={user.userId}>{environment}{user.email}{user.usingSharedLogin && sharedLoginPill}</div>
               <div className={`grid-item user-item last-seen`} key={user.userId}><div className={`pill-item ${recentlySeenClass}`}>Active {textDifference} ago</div></div>
             </Fragment>
           );
