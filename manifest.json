@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "name": "NetSuite User Status",
+  "name": "NetSuite Account Status",
   "version": "2.0.0",
-  "description": "This extension will show the NetSuite account that each user is logged into.",
+  "description": "This extension will show the NetSuite accounts and any users logged into.",
   "icons": {
     "16": "assets/icons/icon16.png",
     "48": "assets/icons/icon48.png",
@@ -11,7 +11,7 @@
   "browser_action": {
     "default_icon": "assets/icons/icon16.png",
     "default_popup": "popup/index.html",
-    "default_title": "User Status Window"
+    "default_title": "Account Status Window"
   },
   "content_security_policy":"script-src 'self' https://www.gstatic.com/ https://*.firebaseio.com https://www.googleapis.com; object-src 'self'",
   "content_scripts": [
