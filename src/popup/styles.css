@@ -50,44 +50,9 @@
     }
 }
 
-.transition-hidden {
-    transition: all 0.2s linear;
-    visibility: hidden;
-    opacity: 0;
-}
-
-.transition-shown {
-    opacity: 1;
-    visibility: visible;
-    transition: all 0.2s linear;
-}
-
-/* .table td, .table th {
-    padding: .5rem;
-    vertical-align: middle;
-    border-top: 1px solid #dee2e6;
-}
-
-.table-borderless > tbody > tr > td,
-.table-borderless > tbody > tr > th {
-    border: none;
-}
-
-.badge {
-    vertical-align: middle;
-    line-height: 1.2;
-    font-weight: 500;
-}
-
-.app {
-    font-family: AvenirNextLTPro, Avenir, "Open Sans", sans-serif;
-    padding-bottom: 20px;
-} */
-
 .container {
-    /* max-width: 580px; */
     width: 580px;
-    margin-bottom: 5px;
+    margin: 5px 0;
 }
 
 header {
