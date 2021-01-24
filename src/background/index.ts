@@ -9,7 +9,7 @@ chrome.runtime.onMessage.addListener((request, _, sendResponse) => {
 
   if (request.action === 'updateStatus') {
     const data: IUpdate | void = request.source;
-    if (!data) { return; }
+    if (!data) return;
     getDeviceId()
       .then(async (deviceId: string) => {
         data.user.deviceId = deviceId;
@@ -111,11 +111,11 @@ async function addUpdateUserDoc(db: firebase.firestore.Firestore, data: IUpdate,
 
   if (!data.user.userId) return;
   if (data.isBergankdv) {
-    logger('Creating account', data);
     // Create or update the user, updates only effect email, name and status
     const userDoc = await userCollection.doc(data.user.userId).get();
     if (userDoc.exists) {
       userCollection.doc(data.user.userId).update({
+        deviceId: data.user.deviceId,
         email: data.user.email,
         name: data.user.name,
         status: data.user.status,
