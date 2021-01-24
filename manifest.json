@@ -9,7 +9,7 @@
     "128": "assets/icons/icon128.png"
   },
   "browser_action": {
-    "default_icon": "assets/icons/icon16.png",
+    "default_icon": "assets/icons/icon128.png",
     "default_popup": "popup/index.html",
     "default_title": "Account Status Window"
   },
