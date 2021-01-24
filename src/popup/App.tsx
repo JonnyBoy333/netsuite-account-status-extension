@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useLayoutEffect, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 import { Flipper } from 'react-flip-toolkit';
 import db from '../firebase';
 import { IAccount, IFirebaseAccount, IFirebaseUser, IUser } from '../../typings';
