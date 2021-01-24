@@ -23,7 +23,7 @@ const Card: FC<IProps> = ({ accountNum, accountName, logoUrl, lastSeenDate, user
         <div className={[...headerClasses, 'last-seen'].join(' ')}><div className={`pill-header ${users.length === 0 ? 'inactive' : recentlySeenClass}`}>Active {textDifference} ago</div></div>
         {users.map((user) => {
           const isUserInactive = user.status !== 'active';
-          const { textDifference, recentlySeenClass } = getLastSeenTextAndClass(lastSeenDate, isUserInactive);
+          const { textDifference, recentlySeenClass } = getLastSeenTextAndClass(user.lastSeenDate, isUserInactive);
           const environment = user.environment === 'PRODUCTION' ? <div className='pill-outline primary-pill'>PROD</div> : <div className='pill-outline warning-pill'>SB</div>;
           return (
             <Fragment key={user.userId}>
