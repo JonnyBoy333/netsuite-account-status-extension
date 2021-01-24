@@ -31,7 +31,6 @@ export interface IFirebaseAccount extends IBaseAccount {
 
 export interface IAccount extends IBaseAccount {
   lastSeenDate: string;
-  id: string;
 }
 
 export interface IUpdate {
