@@ -60,8 +60,8 @@ const App: FC = () => {
     );
   };
 
-  console.log('User State', users);
-  console.log('Account State', accounts);
+  logger('User State', users);
+  logger('Account State', accounts);
   return (
     <div className='container'>
       <Flipper flipKey={accounts.map((account) => account.accountNum).join('')}>
@@ -85,6 +85,11 @@ function roundToMinutes(minutes: number, dateStr: string): number {
   let ms = 1000 * 60 * minutes; // convert minutes to ms
   let roundedDate = new Date(Math.floor(d.getTime() / ms) * ms);
   return roundedDate.getTime();
+}
+
+function logger(arg1: unknown, arg2?: unknown): void {
+  // eslint-disable-next-line no-console
+  console.log(arg1, arg2);
 }
 
 export default App;
