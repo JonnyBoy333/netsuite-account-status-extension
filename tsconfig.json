@@ -1,28 +1,34 @@
 {
-    "compilerOptions": {
-        "watch": true,
-        "module": "commonjs",
-        "target": "es5",
-        "noImplicitAny": false,
-        "moduleResolution": "node",
-        "sourceMap": false,
-        "outDir": "dist",
-        "newLine": "LF",
-        "baseUrl": ".",
-        "noImplicitUseStrict": true,
-        "noUnusedLocals": false,
-        "paths": {
-            "*": [
-                "node_modules/*",
-                "src/types/*"
-            ]
-        }
-    },
-    "compileOnSave": true,
-    "exclude": [
-        "node_modules"
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
     ],
-    "include": [
-        "src/**/*"
-    ]
+    "declaration": false,
+    "sourceMap": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "moduleResolution": "node",
+    "baseUrl": "./",
+    "paths": { },
+    "typeRoots": [
+      "node_modules/@types"
+    ],
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react",
+    "allowSyntheticDefaultImports": true
+  },
+  "include": [
+    "./src"
+  ]
 }
