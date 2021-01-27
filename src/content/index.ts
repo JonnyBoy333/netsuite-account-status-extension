@@ -285,5 +285,5 @@ export function convertMS(ms: number): { d: number, h: number, m: number, s: num
 
 function logger(arg1: unknown, arg2?: unknown): void {
   // eslint-disable-next-line no-console
-  console.log(arg1, arg2);
+  // console.log(arg1, arg2);
 }
