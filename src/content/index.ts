@@ -1,42 +1,66 @@
 import { statuses, IUserStatusCache, IUser, IUpdate, IContextObj } from '../../typings';
 
-const url = document.location.href;
-logger('URL', url);
-if (url.includes('/login/') || url.includes('/customerlogin')) {
-  addUserStatusListener((response) => {
-    logger('Firebase listener result', response);
-    addInputListener(document, response.deviceId, url);
-  });
-  removeUserStatusListener();
-} else if (url.includes('netsuite')) {
-  logger('NetSuite User Status running...');
-  const statusObj = gatherUserData(document);
-  if (statusObj) {
-    sendStatusToBackground(statusObj);
+main();
+
+let isConnected = true;
+// clean up when content script gets disconnected
+chrome.runtime.connect().onDisconnect.addListener(() => {
+  isConnected = false;
+  logger('Disconnected', isConnected);
+});
+
+function main() {
+  const url = document.location.href;
+  logger('URL', url);
+  if (!chrome?.runtime) return;
+  // Run on login pages except the 2FA and Choose Role pages
+  if ((url.includes('/login/') || url.includes('/customerlogin')) && !url.includes('loginchallenge') && !url.includes('chooserole')) {
+    addUserStatusListener((response) => {
+      logger('Firebase listener result', response);
+      addInputListener(document, response.deviceId, url);
+    });
+    removeUserStatusListener();
+
+    // Run on all other NetSuite pages
+  } else if (url.includes('netsuite')) {
+    logger('NetSuite User Status running...');
+    const statusObj = gatherUserData(document);
+    if (statusObj) {
+      sendStatusToBackground(statusObj);
+    }
+    addTimer();
+    addLogoutListener();
   }
-  addTimer();
-  addLogoutListener();
 }
 
 function addLogoutListener(): void {
   document.getElementById('ns-header-menu-userrole-item0')?.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: 'logout' });
+    // @ts-ignore app is available
+    if (typeof chrome.app.isInstalled !== 'undefined') {
+      chrome.runtime.sendMessage({ action: 'logout' });
+    }
   });
 }
 
 function addUserStatusListener(callback: (response: { response: string, deviceId: string }) => void) {
-  chrome.runtime.sendMessage({ action: 'addUserStatusListener' }, callback);
+  // @ts-ignore app is available
+  if (typeof chrome.app.isInstalled !== 'undefined') {
+    chrome.runtime.sendMessage({ action: 'addUserStatusListener' }, callback);
+  }
 }
 
 function removeUserStatusListener() {
   window.addEventListener('beforeunload', () => {
     logger('Running beforeunload');
-    chrome.runtime.sendMessage({ action: 'removeUserStatusListener' });
+    // @ts-ignore app is available
+    if (typeof chrome.app.isInstalled !== 'undefined') {
+      chrome.runtime.sendMessage({ action: 'removeUserStatusListener' });
+    }
   });
 }
 
 function addInputListener(document: Document, userDeviceId: string, url: string): void {
-  const btnId = url.includes('/login/') ? 'login-submit' : 'submitButton'; 
+  const btnId = url.includes('/login/') ? 'login-submit' : 'submitButton';
   addStatusElement(document, btnId);
   let userStatuses: IUserStatusCache;
 
@@ -67,7 +91,7 @@ function addInputListener(document: Document, userDeviceId: string, url: string)
 }
 
 function displayUserMsg(email: string, userDeviceId: string, userStatuses: IUserStatusCache): void {
-  if (userStatuses) {
+  if (userStatuses && email) {
     logger('Entered User Status', userStatuses[email.toLowerCase()]);
     const activeUser = userStatuses[email.toLowerCase()];
     if (activeUser && userDeviceId !== activeUser.deviceId) {
@@ -159,8 +183,11 @@ function getColor(status: statuses, { d, h, m }: { d: number, h: number, m: numb
 }
 
 function sendStatusToBackground(statusUpdate: IUpdate) {
-  // Send it to the extension
-  chrome.runtime.sendMessage({ action: 'updateStatus', source: statusUpdate });
+  // @ts-ignore app is available
+  if (typeof chrome.app.isInstalled !== 'undefined') {
+    // Send it to the extension
+    chrome.runtime.sendMessage({ action: 'updateStatus', source: statusUpdate });
+  }
 }
 
 function addTimer() {
@@ -185,8 +212,8 @@ function gatherUserData(document: Document): IUpdate | void {
   const date = new Date().toUTCString();
   const logoElements = document.getElementsByClassName('ns-logo');
   const domain = `https://${document.location.hostname}`;
-  const logoUrl = domain + logoElements[logoElements.length - 1].firstElementChild?.getAttribute('src');
-  let accountName = document.getElementsByClassName('ns-role-company')[0].innerHTML;
+  const logoUrl = domain + logoElements[logoElements.length - 1]?.firstElementChild?.getAttribute('src');
+  let accountName = document.getElementsByClassName('ns-role-company')[0]?.innerHTML;
   accountName = accountName.replace(/\s\S*SB.*\w*/g, ''); // Remove Sandbox identifiers at the end of the name
   const accountNum = ctxObj.accountNum.includes('_') ? ctxObj.accountNum.split('_')[0] : ctxObj.accountNum;
 
@@ -285,5 +312,5 @@ export function convertMS(ms: number): { d: number, h: number, m: number, s: num
 
 function logger(arg1: unknown, arg2?: unknown): void {
   // eslint-disable-next-line no-console
-  // console.log(arg1, arg2);
+  console.log(arg1, arg2);
 }
