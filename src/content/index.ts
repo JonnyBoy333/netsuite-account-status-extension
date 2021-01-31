@@ -2,13 +2,6 @@ import { statuses, IUserStatusCache, IUser, IUpdate, IContextObj } from '../../t
 
 main();
 
-let isConnected = true;
-// clean up when content script gets disconnected
-chrome.runtime.connect().onDisconnect.addListener(() => {
-  isConnected = false;
-  logger('Disconnected', isConnected);
-});
-
 function main() {
   const url = document.location.href;
   logger('URL', url);
