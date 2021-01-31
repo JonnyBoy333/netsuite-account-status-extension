@@ -194,9 +194,11 @@ function addTimer() {
   if (!window.netsuite_status) {
     let interval: NodeJS.Timeout | undefined;
     const anotherInterval = setInterval(() => {
-      if (!document.hidden && !interval) {
+      // @ts-ignore app is available
+      if (!document.hidden && !interval && typeof chrome.app.isInstalled !== 'undefined') {
         interval = createInterval(document);
-      } else if (document.hidden && interval) {
+        // @ts-ignore app is available
+      } else if ((document.hidden && interval) || (interval && typeof chrome.app.isInstalled === 'undefined')) {
         clearInterval(interval);
         interval = undefined; // Clear the interval so that it can be restarted when returning to a tab
       }
