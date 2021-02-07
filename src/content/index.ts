@@ -5,24 +5,29 @@ main();
 async function main() {
   const url = document.location.href;
   logger('URL', url);
-  if (!chrome?.runtime) return;
-  // Run on login pages except the 2FA and Choose Role pages
-  if ((url.includes('/login/') || url.includes('/customerlogin')) && !url.includes('loginchallenge') && !url.includes('chooserole')) {
-    const response = await sendMessageToBackground<null, { response: string, deviceId: string }>('addUserStatusListener');
-    if (response) {
-      logger('Firebase listener result', response);
-      addInputListener(document, response.deviceId, url);
+
+  try {
+    if (!chrome?.runtime) return;
+    // Run on login pages except the 2FA and Choose Role pages
+    if ((url.includes('/login/') || url.includes('/customerlogin')) && !url.includes('loginchallenge') && !url.includes('chooserole')) {
+      const response = await sendMessageToBackground<null, { response: string, deviceId: string }>('addUserStatusListener');
+      if (response) {
+        logger('Firebase listener result', response);
+        addInputListener(document, response.deviceId, url);
+      }
+  
+      removeUserStatusListener();
+  
+      // Run on all other NetSuite pages
+    } else if (url.includes('netsuite')) {
+      logger('NetSuite User Status running...');
+      const statusObj = gatherUserData(document);
+      if (statusObj) sendMessageToBackground<IUpdate, null>('updateStatus', statusObj);
+      addTimer();
+      addLogoutListener();
     }
-
-    removeUserStatusListener();
-
-    // Run on all other NetSuite pages
-  } else if (url.includes('netsuite')) {
-    logger('NetSuite User Status running...');
-    const statusObj = gatherUserData(document);
-    if (statusObj) sendMessageToBackground<IUpdate, null>('updateStatus', statusObj);
-    addTimer();
-    addLogoutListener();
+  } catch (err) {
+    handleError('There was a problem', err);
   }
 }
 
@@ -203,7 +208,7 @@ function gatherUserData(document: Document): IUpdate | void {
   const domain = `https://${document.location.hostname}`;
   const logoUrl = domain + logoElements[logoElements.length - 1]?.firstElementChild?.getAttribute('src');
   let accountName = document.getElementsByClassName('ns-role-company')[0]?.innerHTML;
-  accountName = accountName.replace(/\s\S*SB.*\w*/g, ''); // Remove Sandbox identifiers at the end of the name
+  accountName = accountName?.replace(/\s\S*SB.*\w*/g, ''); // Remove Sandbox identifiers at the end of the name
   const accountNum = ctxObj.accountNum.includes('_') ? ctxObj.accountNum.split('_')[0] : ctxObj.accountNum;
 
   const updateBody: IUpdate = {
@@ -314,4 +319,9 @@ export function convertMS(ms: number): { d: number, h: number, m: number, s: num
 function logger(arg1: unknown, arg2?: unknown): void {
   // eslint-disable-next-line no-console
   console.log(arg1, arg2);
+}
+
+function handleError(title: string, err: unknown): void {
+  // eslint-disable-next-line no-console
+  console.error(title, err);
 }
