@@ -170,7 +170,7 @@ async function addUpdateUserDoc(db: firebase.firestore.Firestore, data: IUpdate,
 
 function logger(arg1: unknown, arg2?: unknown): void {
   // eslint-disable-next-line no-console
-  console.log(arg1, arg2);
+  // console.log(arg1, arg2);
 }
 
 function handleError(title: string, err: unknown): void {

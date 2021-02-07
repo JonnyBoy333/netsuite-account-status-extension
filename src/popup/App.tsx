@@ -116,7 +116,7 @@ function roundToMinutes(minutes: number, dateStr: string): number {
 
 function logger(arg1: unknown, arg2?: unknown): void {
   // eslint-disable-next-line no-console
-  console.log(arg1, arg2);
+  // console.log(arg1, arg2);
 }
 
 export default App;
