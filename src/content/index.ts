@@ -316,6 +316,7 @@ export function convertMS(ms: number): { d: number, h: number, m: number, s: num
   return { d, h, m, s };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function logger(arg1: unknown, arg2?: unknown): void {
   // eslint-disable-next-line no-console
   // console.log(arg1, arg2);

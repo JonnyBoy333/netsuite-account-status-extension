@@ -114,6 +114,7 @@ function roundToMinutes(minutes: number, dateStr: string): number {
   return roundedDate.getTime();
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function logger(arg1: unknown, arg2?: unknown): void {
   // eslint-disable-next-line no-console
   // console.log(arg1, arg2);
