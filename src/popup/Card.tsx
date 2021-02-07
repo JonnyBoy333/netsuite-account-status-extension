@@ -19,8 +19,10 @@ const Card: FC<IProps> = ({ accountNum, accountName, logoUrl, lastSeenDate, user
     <Flipped key={accountNum} flipId={accountNum}>
       <div className='grid-container'>
         <div className={[...headerClasses].join(' ')} style={{ justifyContent: 'center' }}>{logoUrl && <img className='image' src={logoUrl}></img>}</div>
-        <div className={[...headerClasses, 'title-item'].join(' ')}><span className='header'>{accountName}</span></div>
-        <div className={[...headerClasses, 'last-seen'].join(' ')}><div className={`pill-header ${users.length === 0 ? 'inactive' : recentlySeenClass}`}>Active {textDifference} ago</div></div>
+        <div className={[...headerClasses, 'title-item'].join(' ')}>
+          <span className='header'>{accountName}</span>
+          <div className={`pill-header ${users.length === 0 ? 'inactive' : recentlySeenClass}`}>Active {textDifference} ago</div>
+        </div>
         {users.map((user) => {
           const isUserInactive = user.status !== 'active';
           const { textDifference, recentlySeenClass } = getLastSeenTextAndClass(user.lastSeenDate, isUserInactive);
