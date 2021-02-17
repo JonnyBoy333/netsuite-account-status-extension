@@ -25,7 +25,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === 'addUserStatusListener') {
-    unsubscribe = db.collection('users').onSnapshot((snapshot) => {
+    const date = new Date();
+    const date1HrAgo = date.setHours(date.getHours() - 1); // We don't need to listen for users active over 1 hour ago
+    unsubscribe = db.collection('users').where('lastSeenDate', '>', date1HrAgo).onSnapshot((snapshot) => {
       const userStatuses: IUserStatusCache = {};
       snapshot.forEach((doc) => {
         const firebaseUser = <IFirebaseUser>doc.data();
