@@ -29,7 +29,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const userStatuses: IUserStatusCache = {};
       snapshot.forEach((doc) => {
         const firebaseUser = <IFirebaseUser>doc.data();
-        userStatuses[firebaseUser.email] = { ...firebaseUser, lastSeenDate: firebaseUser?.lastSeenDate.toDate().toUTCString() };
+        if (!userStatuses[firebaseUser.email] || isDateGreater(firebaseUser.lastSeenDate.toDate(), userStatuses[firebaseUser.email].lastSeenDate)) {
+          userStatuses[firebaseUser.email] = { ...firebaseUser, lastSeenDate: firebaseUser?.lastSeenDate.toDate().toUTCString() };
+        }
       });
       updateStorage(userStatuses);
       logger('Users', userStatuses);
@@ -38,11 +40,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const changedDoc = <IFirebaseUser>change.doc.data();
         if (change.type === 'added' || change.type === 'modified') {
           logger('Updated user:', change.doc.data());
-          userStatuses[changedDoc.email] = { ...changedDoc, lastSeenDate: changedDoc.lastSeenDate.toDate().toUTCString() };
+          if (!userStatuses[changedDoc.email] || isDateGreater(changedDoc.lastSeenDate.toDate(), userStatuses[changedDoc.email].lastSeenDate)) {
+            userStatuses[changedDoc.email] = { ...changedDoc, lastSeenDate: changedDoc.lastSeenDate.toDate().toUTCString() };
+          }
         }
         if (change.type === 'removed') {
           logger('Removed user:', change.doc.data());
-          delete userStatuses[changedDoc.email];
+          if (userStatuses[changedDoc.email]) delete userStatuses[changedDoc.email];
         }
         updateStorage(userStatuses);
       });
@@ -139,7 +143,7 @@ async function addUpdateUserDoc(db: firebase.firestore.Firestore, data: IUpdate,
       } else {
         userCollection.doc(data.user.userId).set({
           deviceId: data.user.deviceId,
-          email: data.user.email,
+          email: data.user.email.toLowerCase(),
           userId: data.user.userId,
           name: data.user.name,
           status: data.user.status,
@@ -153,7 +157,7 @@ async function addUpdateUserDoc(db: firebase.firestore.Firestore, data: IUpdate,
         userSnap.forEach((doc) => {
           userCollection.doc(doc.id).update({
             account: { id: accountDocId, name: accountName },
-            email: data.user.email,
+            email: data.user.email.toLowerCase(),
             environment: data.user.environment,
             lastSeenDate: firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate)),
             status: data.user.status,
@@ -166,6 +170,14 @@ async function addUpdateUserDoc(db: firebase.firestore.Firestore, data: IUpdate,
   } catch (err) {
     handleError('There was a problem updating the user', err);
   }
+}
+
+function isDateGreater(date1: Date, date2: string): boolean {
+  if (!date1) return false;
+  if (!date2) return true;
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  return d1.getTime() > d2.getTime();
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
