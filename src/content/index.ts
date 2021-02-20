@@ -15,11 +15,11 @@ async function main() {
         logger('Firebase listener result', response);
         addInputListener(document, response.deviceId, url);
       }
-  
       removeUserStatusListener();
   
       // Run on all other NetSuite pages
     } else if (url.includes('netsuite')) {
+      sendMessageToBackground('removeUserStatusListener'); // Make sure there are no open listeners
       logger('NetSuite User Status running...');
       const statusObj = gatherUserData(document);
       if (statusObj) sendMessageToBackground<IUpdate, null>('updateStatus', statusObj);
@@ -285,7 +285,7 @@ function createInterval(document: Document) {
   return setInterval(() => {
     const statusObj = gatherUserData(document);
     if (statusObj) sendMessageToBackground<IUpdate, null>('updateStatus', statusObj);
-  }, 15000);
+  }, 20000);
 }
 
 function sendMessageToBackground<T, P>(action: 'updateStatus' | 'addUserStatusListener' | 'removeUserStatusListener' | 'isTabActive' | 'logout', payload?: T): Promise<P | null> {
