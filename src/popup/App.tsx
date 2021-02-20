@@ -2,7 +2,6 @@ import React, { FC, Fragment, useEffect, useState } from 'react';
 import { Flipper } from 'react-flip-toolkit';
 import db from '../firebase';
 import { IAccount, IFirebaseAccount, IFirebaseUser, IUser } from '../../typings';
-// import { shuffle } from 'lodash';
 import Card from './Card';
 import './styles.css';
 
@@ -10,7 +9,6 @@ const App: FC = () => {
   const [users, setUsers] = useState<IUser[]>([]);
   const [accounts, setAccounts] = useState<IAccount[]>([]);
   const [errors, setErrors] = useState<{ title: string, message: string }[]>([]);
-  // const shuffleList = () => setAccounts(shuffle(accounts));
   useEffect(() => {
     const unsubscribe = db.collection('users').onSnapshot((snapshot) => {
       const users: IUser[] = [];
