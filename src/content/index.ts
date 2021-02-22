@@ -1,42 +1,51 @@
 import { statuses, IUserStatusCache, IUser, IUpdate, IContextObj } from '../../typings';
 
-const url = document.location.href;
-logger('URL', url);
-if (url.includes('/login/') || url.includes('/customerlogin')) {
-  addUserStatusListener((response) => {
-    logger('Firebase listener result', response);
-    addInputListener(document, response.deviceId, url);
-  });
-  removeUserStatusListener();
-} else if (url.includes('netsuite')) {
-  logger('NetSuite User Status running...');
-  const statusObj = gatherUserData(document);
-  if (statusObj) {
-    sendStatusToBackground(statusObj);
+main();
+
+async function main() {
+  const url = document.location.href;
+  logger('URL', url);
+
+  try {
+    if (!chrome?.runtime) return;
+    // Run on login pages except the 2FA and Choose Role pages
+    if ((url.includes('/login/') || url.includes('/customerlogin')) && !url.includes('loginchallenge') && !url.includes('chooserole')) {
+      const response = await sendMessageToBackground<null, { response: string, deviceId: string }>('addUserStatusListener');
+      if (response) {
+        logger('Firebase listener result', response);
+        addInputListener(document, response.deviceId, url);
+      }
+      removeUserStatusListener();
+  
+      // Run on all other NetSuite pages
+    } else if (url.includes('netsuite')) {
+      sendMessageToBackground('removeUserStatusListener'); // Make sure there are no open listeners
+      logger('NetSuite User Status running...');
+      const statusObj = gatherUserData(document);
+      if (statusObj) sendMessageToBackground<IUpdate, null>('updateStatus', statusObj);
+      addTimer();
+      addLogoutListener();
+    }
+  } catch (err) {
+    handleError('There was a problem', err);
   }
-  addTimer();
-  addLogoutListener();
 }
 
 function addLogoutListener(): void {
   document.getElementById('ns-header-menu-userrole-item0')?.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: 'logout' });
+    sendMessageToBackground('logout');
   });
-}
-
-function addUserStatusListener(callback: (response: { response: string, deviceId: string }) => void) {
-  chrome.runtime.sendMessage({ action: 'addUserStatusListener' }, callback);
 }
 
 function removeUserStatusListener() {
   window.addEventListener('beforeunload', () => {
     logger('Running beforeunload');
-    chrome.runtime.sendMessage({ action: 'removeUserStatusListener' });
+    sendMessageToBackground('removeUserStatusListener');
   });
 }
 
 function addInputListener(document: Document, userDeviceId: string, url: string): void {
-  const btnId = url.includes('/login/') ? 'login-submit' : 'submitButton'; 
+  const btnId = url.includes('/login/') ? 'login-submit' : 'submitButton';
   addStatusElement(document, btnId);
   let userStatuses: IUserStatusCache;
 
@@ -67,7 +76,7 @@ function addInputListener(document: Document, userDeviceId: string, url: string)
 }
 
 function displayUserMsg(email: string, userDeviceId: string, userStatuses: IUserStatusCache): void {
-  if (userStatuses) {
+  if (userStatuses && email) {
     logger('Entered User Status', userStatuses[email.toLowerCase()]);
     const activeUser = userStatuses[email.toLowerCase()];
     if (activeUser && userDeviceId !== activeUser.deviceId) {
@@ -158,24 +167,36 @@ function getColor(status: statuses, { d, h, m }: { d: number, h: number, m: numb
   return color;
 }
 
-function sendStatusToBackground(statusUpdate: IUpdate) {
-  // Send it to the extension
-  chrome.runtime.sendMessage({ action: 'updateStatus', source: statusUpdate });
-}
-
 function addTimer() {
   if (!window.netsuite_status) {
     let interval: NodeJS.Timeout | undefined;
-    const anotherInterval = setInterval(() => {
-      if (!document.hidden && !interval) {
+    const anotherInterval = setInterval(async () => {
+      const usingActiveTab = await isTabActive();
+      // @ts-ignore app is available
+      if (usingActiveTab && !interval && typeof chrome.app.isInstalled !== 'undefined' && usingActiveTab) {
+        const statusObj = gatherUserData(document);
+        if (statusObj) sendMessageToBackground<IUpdate, null>('updateStatus', statusObj);
         interval = createInterval(document);
-      } else if (document.hidden && interval) {
+        // @ts-ignore app is available
+      } else if ((interval && !usingActiveTab) || (interval && typeof chrome.app.isInstalled === 'undefined')) {
         clearInterval(interval);
         interval = undefined; // Clear the interval so that it can be restarted when returning to a tab
       }
     }, 5000);
     window.netsuite_status = anotherInterval;
   }
+}
+
+function isTabActive(): Promise<string> {
+  return new Promise((resolve) => {
+    // @ts-ignore app is available
+    if (typeof chrome.app.isInstalled !== 'undefined') {
+      // Send it to the extension
+      chrome.runtime.sendMessage({ action: 'isTabActive' }, (resp) => {
+        resolve(resp);
+      });
+    }
+  });
 }
 
 function gatherUserData(document: Document): IUpdate | void {
@@ -185,9 +206,9 @@ function gatherUserData(document: Document): IUpdate | void {
   const date = new Date().toUTCString();
   const logoElements = document.getElementsByClassName('ns-logo');
   const domain = `https://${document.location.hostname}`;
-  const logoUrl = domain + logoElements[logoElements.length - 1].firstElementChild?.getAttribute('src');
-  let accountName = document.getElementsByClassName('ns-role-company')[0].innerHTML;
-  accountName = accountName.replace(/\s\S*SB.*\w*/g, ''); // Remove Sandbox identifiers at the end of the name
+  const logoUrl = domain + logoElements[logoElements.length - 1]?.firstElementChild?.getAttribute('src');
+  let accountName = document.getElementsByClassName('ns-role-company')[0]?.innerHTML;
+  accountName = accountName?.replace(/\s\S*SB.*\w*/g, ''); // Remove Sandbox identifiers at the end of the name
   const accountNum = ctxObj.accountNum.includes('_') ? ctxObj.accountNum.split('_')[0] : ctxObj.accountNum;
 
   const updateBody: IUpdate = {
@@ -263,10 +284,22 @@ function getUserStatus(): statuses {
 function createInterval(document: Document) {
   return setInterval(() => {
     const statusObj = gatherUserData(document);
-    if (statusObj) {
-      sendStatusToBackground(statusObj);
+    if (statusObj) sendMessageToBackground<IUpdate, null>('updateStatus', statusObj);
+  }, 20000);
+}
+
+function sendMessageToBackground<T, P>(action: 'updateStatus' | 'addUserStatusListener' | 'removeUserStatusListener' | 'isTabActive' | 'logout', payload?: T): Promise<P | null> {
+  return new Promise((resolve) => {
+    // @ts-ignore app is available
+    if (typeof chrome.app.isInstalled !== 'undefined') {
+      // Send it to the extension
+      chrome.runtime.sendMessage({ action, source: payload }, (response) => {
+        resolve(response);
+      });
+    } else {
+      resolve(null);
     }
-  }, 15000);
+  });
 }
 
 export function convertMS(ms: number): { d: number, h: number, m: number, s: number } {
@@ -283,7 +316,13 @@ export function convertMS(ms: number): { d: number, h: number, m: number, s: num
   return { d, h, m, s };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function logger(arg1: unknown, arg2?: unknown): void {
   // eslint-disable-next-line no-console
   // console.log(arg1, arg2);
+}
+
+function handleError(title: string, err: unknown): void {
+  // eslint-disable-next-line no-console
+  console.error(title, err);
 }

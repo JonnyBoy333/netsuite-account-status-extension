@@ -51,7 +51,7 @@
 }
 
 .container {
-    width: 580px;
+    width: 610px;
     margin: 5px 0;
 }
 
@@ -132,6 +132,12 @@ h1 {
 
 .title-item {
   color: #1a1a1a;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: baseline;
+  width: 460px;
+  grid-column: 2 / 4;
 }
 
 .user-item {
@@ -169,4 +175,10 @@ h1 {
 
 .title-image {
   padding: 0;
+}
+
+.error {
+  color: rgb(235, 79, 70);
+  padding-bottom: 20px;
+  font-size: 12pt;
 }

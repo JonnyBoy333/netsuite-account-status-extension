@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "BerganKDV NetSuite Account Status",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "This extension will show the NetSuite account status and any BerganKDV users logged into them.",
   "icons": {
     "16": "assets/icons/icon16.png",

@@ -1,15 +1,14 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, Fragment, useEffect, useState } from 'react';
 import { Flipper } from 'react-flip-toolkit';
 import db from '../firebase';
 import { IAccount, IFirebaseAccount, IFirebaseUser, IUser } from '../../typings';
-// import { shuffle } from 'lodash';
 import Card from './Card';
 import './styles.css';
 
 const App: FC = () => {
   const [users, setUsers] = useState<IUser[]>([]);
   const [accounts, setAccounts] = useState<IAccount[]>([]);
-  // const shuffleList = () => setAccounts(shuffle(accounts));
+  const [errors, setErrors] = useState<{ title: string, message: string }[]>([]);
   useEffect(() => {
     const unsubscribe = db.collection('users').onSnapshot((snapshot) => {
       const users: IUser[] = [];
@@ -18,6 +17,11 @@ const App: FC = () => {
         users.push({ ...firebaseUser, lastSeenDate: firebaseUser.lastSeenDate ? firebaseUser.lastSeenDate.toDate().toUTCString() : '' });
       });
       setUsers(() => users);
+    }, (err) => {
+      setErrors((prevState) => {
+        const newState = [...prevState, { title: err.name, message: err.message }];
+        return newState;
+      });
     });
     return unsubscribe;
   }, []);
@@ -30,6 +34,11 @@ const App: FC = () => {
         if (firebaseAccount.accountNum !== '3499441') accounts.push({ ...firebaseAccount, lastSeenDate: firebaseAccount.lastSeenDate.toDate().toUTCString() });
       });
       setAccounts(() => accounts);
+    }, (err) => {
+      setErrors((prevState) => {
+        const newState = [...prevState, { title: err.name, message: err.message }];
+        return newState;
+      });
     });
     return unsubscribe;
   }, []);
@@ -60,21 +69,37 @@ const App: FC = () => {
     );
   };
 
+  const Errors = () => {
+    return (
+      <div className='center error'>
+        {errors.map((error, i) => {
+          return <span key={i}>{error.title}: {error.message}</span>;
+        })}
+      </div>
+    );
+  };
+
+  const Accounts = () => {
+    return accounts.length === 0 && users.length === 0
+      ? <Loader />
+      : <Fragment>
+        {sortedAccounts.map((account) => {
+          const relatedUsers = sortedUsers.filter((user) => user.account?.id === account.accountNum);
+          return <Card key={account.accountNum} users={relatedUsers} {...account}></Card>;
+        })}
+      </Fragment>;
+  };
+
   logger('User State', users);
   logger('Account State', accounts);
   return (
     <div className='container'>
       <Flipper flipKey={accounts.map((account) => account.accountNum).join('')}>
-      {/* <button onClick={shuffleList}> shuffle</button> */}
-      <div className='flex-container'>
-        <div className='center'><h1>NetSuite Account Status</h1></div>
-        {accounts.length === 0 && users.length === 0
-          ? <Loader></Loader>
-          : sortedAccounts.map((account) => {
-            const relatedUsers = sortedUsers.filter((user) => user.account?.id === account.accountNum);
-            return <Card key={account.accountNum} users={relatedUsers} {...account}></Card>;
-          })}
-      </div>
+        {/* <button onClick={shuffleList}> shuffle</button> */}
+        <div className='flex-container'>
+          <div className='center'><h1>NetSuite Account Status</h1></div>
+          {errors.length > 0 ? <Errors /> : <Accounts />}
+        </div>
       </Flipper>
     </div>
   );
@@ -82,11 +107,12 @@ const App: FC = () => {
 
 function roundToMinutes(minutes: number, dateStr: string): number {
   const d = new Date(dateStr);
-  let ms = 1000 * 60 * minutes; // convert minutes to ms
-  let roundedDate = new Date(Math.floor(d.getTime() / ms) * ms);
+  const ms = 1000 * 60 * minutes; // convert minutes to ms
+  const roundedDate = new Date(Math.floor(d.getTime() / ms) * ms);
   return roundedDate.getTime();
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function logger(arg1: unknown, arg2?: unknown): void {
   // eslint-disable-next-line no-console
   // console.log(arg1, arg2);
