@@ -50,13 +50,14 @@ const App: FC = () => {
     const aHasActiveUsers = users.filter((user) => user.status === 'active').map((user) => user.account?.id).includes(a.accountNum);
     const bHasActiveUsers = users.filter((user) => user.status === 'active').map((user) => user.account?.id).includes(b.accountNum);
     const activeUserComparison = aHasActiveUsers === bHasActiveUsers ? 0 : aHasActiveUsers ? -1 : 1;
+    // console.log('Account Rounded Last Seen', { [a.accountName]: `${a.lastSeenDate}:${roundToMinutes(1, a.lastSeenDate)}`, [b.accountName]: `${b.lastSeenDate}:${roundToMinutes(1, b.lastSeenDate)}` });
     const lastSeenComparison = roundToMinutes(1, b.lastSeenDate) - roundToMinutes(1, a.lastSeenDate);
     const accountNameComparison = a.accountName.localeCompare(b.accountName);
     return activeUserComparison || lastSeenComparison || accountNameComparison;
   }
 
   function sortUsers(a: IUser, b: IUser): number {
-    return a.status.localeCompare(b.status) || new Date(b.lastSeenDate).getTime() - new Date(a.lastSeenDate).getTime();
+    return a.status.localeCompare(b.status) || roundToMinutes(1, b.lastSeenDate) - roundToMinutes(1, a.lastSeenDate);
   }
 
   const Loader = () => {
@@ -108,7 +109,7 @@ const App: FC = () => {
 function roundToMinutes(minutes: number, dateStr: string): number {
   const d = new Date(dateStr);
   const ms = 1000 * 60 * minutes; // convert minutes to ms
-  const roundedDate = new Date(Math.floor(d.getTime() / ms) * ms);
+  const roundedDate = new Date(Math.round(d.getTime() / ms) * ms);
   return roundedDate.getTime();
 }
 
