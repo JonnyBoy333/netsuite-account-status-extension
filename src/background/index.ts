@@ -6,6 +6,7 @@ import db from '../firebase';
 let unsubscribe: () => void | undefined;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // chrome.storage.local.remove(['nsUserStatusUsage']);
 
   if (request.action === 'updateStatus') {
     const data: IUpdate | void = request.source;
@@ -26,10 +27,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === 'addUserStatusListener') {
     const date = new Date();
-    const date1HrAgo = date.setHours(date.getHours() - 1); // We don't need to listen for users active over 1 hour ago
-    unsubscribe = db.collection('users').where('lastSeenDate', '>', date1HrAgo).onSnapshot((snapshot) => {
+    date.setHours(date.getHours() - 1); // We don't need to listen for users active over 1 hour ago
+    logger('Date 1 Hour Ago', date);
+    unsubscribe = db.collection('users').where('lastSeenDate', '>', date).onSnapshot((snapshot) => {
       const userStatuses: IUserStatusCache = {};
       snapshot.forEach((doc) => {
+        firebaseUsageCount('status_listener', 'read'); // Note: delete me
         const firebaseUser = <IFirebaseUser>doc.data();
         if (!userStatuses[firebaseUser.email] || isDateGreater(firebaseUser.lastSeenDate.toDate(), userStatuses[firebaseUser.email].lastSeenDate)) {
           userStatuses[firebaseUser.email] = { ...firebaseUser, lastSeenDate: firebaseUser?.lastSeenDate.toDate().toUTCString() };
@@ -39,6 +42,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       logger('Users', userStatuses);
 
       snapshot.docChanges().forEach((change) => {
+        firebaseUsageCount('status_listener', 'read'); // Note: delete me
         const changedDoc = <IFirebaseUser>change.doc.data();
         if (change.type === 'added' || change.type === 'modified') {
           logger('Updated user:', change.doc.data());
@@ -93,8 +97,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function inactivateUser(db: firebase.firestore.Firestore, deviceId: string): Promise<void> {
   const userCollection = db.collection('users');
   const userSnap = await userCollection.where('deviceId', '==', deviceId).get();
+  firebaseUsageCount('inactivate_user', 'read'); // Note: delete me
   userSnap.forEach((doc) => {
-    userCollection.doc(doc.id).update({ status: 'inactive' });
+    userCollection.doc(doc.id).update({ status: 'inactive' })
+      .then(() => firebaseUsageCount('inactivate_user', 'write')); // Note: delete me
   });
 }
 
@@ -125,6 +131,7 @@ function addUpdateAccountDoc(db: firebase.firestore.Firestore, data: IUpdate): s
   }
   // This can be asyncronous
   accountCollection.doc(data.accountNum).set(updateObj, { merge: true })
+    .then(() => firebaseUsageCount('update_account', 'write')) // Note: delete me
     .catch((err) => handleError('There was a problem updating the account', err));
   return data.accountNum;
 }
@@ -137,11 +144,14 @@ async function addUpdateUserDoc(db: firebase.firestore.Firestore, data: IUpdate,
     if (data.isBergankdv) {
       // Create or update the user, updates only effect email, name and status
       const userDoc = await userCollection.doc(data.user.userId).get();
+      firebaseUsageCount('lookup_user', 'read'); // Note: delete me
       if (userDoc.exists) {
         userCollection.doc(data.user.userId).update({
           deviceId: data.user.deviceId,
           name: data.user.name,
-        }).catch((err) => handleError('There was a problem updating the user', err));
+        })
+          .then(() => firebaseUsageCount('update_user_bkdv', 'write')) // Note: delete me
+          .catch((err) => handleError('There was a problem updating the user', err));
       } else {
         userCollection.doc(data.user.userId).set({
           deviceId: data.user.deviceId,
@@ -149,12 +159,15 @@ async function addUpdateUserDoc(db: firebase.firestore.Firestore, data: IUpdate,
           userId: data.user.userId,
           name: data.user.name,
           status: data.user.status,
-        }).catch((err) => handleError('There was a problem updating the user', err));
+        })
+          .then(() => firebaseUsageCount('create_user', 'write')) // Note: delete me
+          .catch((err) => handleError('There was a problem updating the user', err));
       }
     } else {
       // Update the account the user is logged into based on their device id
       logger('Updating account', data);
-      const userSnap = await userCollection.where('deviceId', '==', data.user.deviceId).get();
+      // Try getting from cache first
+      const userSnap = await userCollection.where('deviceId', '==', data.user.deviceId).get({ source: 'cache' });
       if (!userSnap.empty) {
         userSnap.forEach((doc) => {
           userCollection.doc(doc.id).update({
@@ -165,7 +178,9 @@ async function addUpdateUserDoc(db: firebase.firestore.Firestore, data: IUpdate,
             status: data.user.status,
             url: data.user.url,
             usingSharedLogin: data.user.usingSharedLogin,
-          }).catch((err) => handleError('There was a problem updating the user', err));
+          })
+            .then(() => firebaseUsageCount('update_user', 'write')) // Note: delete me
+            .catch((err) => handleError('There was a problem updating the user', err));
         });
       }
     }
@@ -185,10 +200,43 @@ function isDateGreater(date1: Date, date2: string): boolean {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function logger(arg1: unknown, arg2?: unknown): void {
   // eslint-disable-next-line no-console
-  // console.log(arg1, arg2);
+  console.log(arg1, arg2);
 }
 
 function handleError(title: string, err: unknown): void {
   // eslint-disable-next-line no-console
   console.error(title, err);
+}
+
+/** 
+ * { 
+ *    2020-01-01: {
+ *     read: {
+ *       update_user: 1,
+ *       total: 10,
+ *     }
+ *   }
+ * }
+*/
+
+function firebaseUsageCount(functionName: string, operation: 'read' | 'write') {
+  chrome.storage.local.get(['nsUserStatusUsage'], (existingStorage) => {
+    console.log('Existing Storage', existingStorage);
+    const existingUsage = existingStorage.nsUserStatusUsage ? JSON.parse(existingStorage.nsUserStatusUsage) : { };
+    console.log('Existing Usage', existingUsage);
+    const currentDate = new Date().toISOString().split('T')[0];
+    console.log('Current Date', currentDate);
+    const todaysUsage = existingUsage[currentDate] ?? { [operation]: { total: 0 } };
+    console.log('Today\'s Usage', todaysUsage);
+
+    // todaysUsage[`${functionName}-${operation}`] += 1;
+    const todaysOperationUsage = todaysUsage[operation] || { total: 0 };
+    todaysOperationUsage.total += 1;
+    todaysOperationUsage[functionName] = todaysOperationUsage[functionName] ? todaysOperationUsage[functionName] + 1 : 1;
+    todaysUsage[operation] = todaysOperationUsage;
+    console.log('New Usages', todaysUsage);
+    existingUsage[currentDate] = todaysUsage;
+    console.log('Writing Usage', existingUsage);
+    chrome.storage.local.set({ nsUserStatusUsage: JSON.stringify(existingUsage) });
+  });
 }
