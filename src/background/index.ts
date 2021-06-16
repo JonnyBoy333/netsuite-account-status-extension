@@ -16,11 +16,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         data.user.deviceId = deviceId;
         logger('User', data);
 
-        const accountDocId = addUpdateAccountDoc(db, data);
-        if (accountDocId) {
-          await addUpdateUserDoc(db, data, accountDocId, data.accountName);
-          sendResponse('success');
-        }
+        // Not updating account for BKDV to reduce writes but will need to manually update logo/name changes if they occur
+        // Another idea would be to update all accounts but only do it once a day and store a flag for if it has been done or not
+        if (!data.isBergankdv) addUpdateAccountDoc(db, data);
+        await addUpdateUserDoc(db, data, data.accountNum, data.accountName);
+        sendResponse('success');
+        // if (accountDocId) {
+        // } else {
+        //   handleError('No account Id found after account update', new Error());
+        //   // throw new Error('No account Id found after account update');
+        // }
       })
       .catch((err) => handleError('There was a problem getting the device Id', err));
   }
@@ -32,7 +37,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     unsubscribe = db.collection('users').where('lastSeenDate', '>', date).onSnapshot((snapshot) => {
       const userStatuses: IUserStatusCache = {};
       snapshot.forEach((doc) => {
-        firebaseUsageCount('status_listener', 'read'); // Note: delete me
+        firebaseUsageCount('status_listener_initial', 'read'); // Note: delete me
         const firebaseUser = <IFirebaseUser>doc.data();
         if (!userStatuses[firebaseUser.email] || isDateGreater(firebaseUser.lastSeenDate.toDate(), userStatuses[firebaseUser.email].lastSeenDate)) {
           userStatuses[firebaseUser.email] = { ...firebaseUser, lastSeenDate: firebaseUser?.lastSeenDate.toDate().toUTCString() };
@@ -42,7 +47,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       logger('Users', userStatuses);
 
       snapshot.docChanges().forEach((change) => {
-        firebaseUsageCount('status_listener', 'read'); // Note: delete me
+        firebaseUsageCount('status_listener_changes', 'read'); // Note: delete me
         const changedDoc = <IFirebaseUser>change.doc.data();
         if (change.type === 'added' || change.type === 'modified') {
           logger('Updated user:', change.doc.data());
@@ -96,12 +101,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 async function inactivateUser(db: firebase.firestore.Firestore, deviceId: string): Promise<void> {
   const userCollection = db.collection('users');
-  const userSnap = await userCollection.where('deviceId', '==', deviceId).get();
-  firebaseUsageCount('inactivate_user', 'read'); // Note: delete me
-  userSnap.forEach((doc) => {
-    userCollection.doc(doc.id).update({ status: 'inactive' })
-      .then(() => firebaseUsageCount('inactivate_user', 'write')); // Note: delete me
-  });
+  const userNSId = await getUserIdFromStorage();
+  if (userNSId) {
+    userCollection.doc(userNSId).update({ status: 'inactive' })
+      .then(() => firebaseUsageCount('inactivate_user_storage', 'write')); // Note: delete me
+  } else {
+    const userSnap = await userCollection.where('deviceId', '==', deviceId).get();
+    firebaseUsageCount('inactivate_user', 'read'); // Note: delete me
+    userSnap.forEach((doc) => {
+      userCollection.doc(doc.id).update({ status: 'inactive' })
+        .then(() => firebaseUsageCount('inactivate_user', 'write')); // Note: delete me
+    });
+  }
 }
 
 function getDeviceId(): Promise<string> {
@@ -117,19 +128,33 @@ function updateStorage(userStatuses: IUserStatusCache): void {
   chrome.storage.local.set({ nsUserStatus: JSON.stringify(userStatuses) });
 }
 
+// Store user id to reduce read operations
+function updateUserIdStorage(employeeNSId: string): void {
+  chrome.storage.local.set({ employeeNSId });
+}
+
+function getUserIdFromStorage(): Promise<string> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['employeeNSId'], (existingStorage) => {
+      resolve(existingStorage.employeeNSId);
+    });
+  });
+}
+
 function addUpdateAccountDoc(db: firebase.firestore.Firestore, data: IUpdate): string | undefined {
   let accountDocId: string | undefined;
   if (!data.accountName) return accountDocId;
   const accountCollection = db.collection('accounts');
   const updateObj: { accountName: string, accountNum?: string, logoUrl?: string, lastSeenDate?: firebase.firestore.Timestamp } = {
     accountName: data.accountName,
+    accountNum: data.accountNum,
   };
-  if (data.accountName) updateObj.accountName = data.accountName;
   if (data.logoUrl) updateObj.logoUrl = data.logoUrl;
   if (data.user.status !== 'inactive') {
     updateObj.lastSeenDate = firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate));
   }
   // This can be asyncronous
+  logger('Account Update', updateObj);
   accountCollection.doc(data.accountNum).set(updateObj, { merge: true })
     .then(() => firebaseUsageCount('update_account', 'write')) // Note: delete me
     .catch((err) => handleError('There was a problem updating the account', err));
@@ -142,46 +167,87 @@ async function addUpdateUserDoc(db: firebase.firestore.Firestore, data: IUpdate,
   try {
     if (!data.user.userId) return;
     if (data.isBergankdv) {
+      updateUserIdStorage(data.user.userId);
+
       // Create or update the user, updates only effect email, name and status
-      const userDoc = await userCollection.doc(data.user.userId).get();
-      firebaseUsageCount('lookup_user', 'read'); // Note: delete me
-      if (userDoc.exists) {
-        userCollection.doc(data.user.userId).update({
+      try {
+
+        // Note: check if any of these values have changed before updating
+        await userCollection.doc(data.user.userId).update({
           deviceId: data.user.deviceId,
           name: data.user.name,
-        })
-          .then(() => firebaseUsageCount('update_user_bkdv', 'write')) // Note: delete me
-          .catch((err) => handleError('There was a problem updating the user', err));
-      } else {
-        userCollection.doc(data.user.userId).set({
-          deviceId: data.user.deviceId,
-          email: data.user.email.toLowerCase(),
-          userId: data.user.userId,
-          name: data.user.name,
-          status: data.user.status,
-        })
-          .then(() => firebaseUsageCount('create_user', 'write')) // Note: delete me
-          .catch((err) => handleError('There was a problem updating the user', err));
+          extensionVerions: chrome.runtime.getManifest().version,
+        });
+        firebaseUsageCount('update_user_bkdv', 'write'); // Note: delete me
+      } catch (err) {
+        if (err.message.indexOf('No document to update') > -1) {
+          userCollection.doc(data.user.userId).set({
+            deviceId: data.user.deviceId,
+            email: data.user.email.toLowerCase(),
+            userId: data.user.userId,
+            name: data.user.name,
+            status: data.user.status,
+            extensionVerions: chrome.runtime.getManifest().version,
+          })
+            .then(() => firebaseUsageCount('create_user', 'write')) // Note: delete me
+            .catch((err) => handleError('There was a problem creating the user', err));
+        } else {
+          handleError('There was a problem updating the user', err.message);
+        }
       }
+
+      // const userDoc = await userCollection.doc(data.user.userId).get(); // Note: this might be able to be removed
+      // firebaseUsageCount('lookup_user', 'read'); // Note: delete me
+      // if (userDoc.exists) {
+      //   userCollection.doc(data.user.userId).update({
+      //     deviceId: data.user.deviceId,
+      //     name: data.user.name,
+      //     extensionVerions: chrome.runtime.getManifest().version,
+      //   })
+      //     .then(() => firebaseUsageCount('update_user_bkdv', 'write')) // Note: delete me
+      //     .catch((err) => handleError('There was a problem updating the user', err));
+      // } else {
+      //   userCollection.doc(data.user.userId).set({
+      //     deviceId: data.user.deviceId,
+      //     email: data.user.email.toLowerCase(),
+      //     userId: data.user.userId,
+      //     name: data.user.name,
+      //     status: data.user.status,
+      //     extensionVerions: chrome.runtime.getManifest().version,
+      //   })
+      //     .then(() => firebaseUsageCount('create_user', 'write')) // Note: delete me
+      //     .catch((err) => handleError('There was a problem updating the user', err));
+      // }
     } else {
       // Update the account the user is logged into based on their device id
-      logger('Updating account', data);
-      // Try getting from cache first
-      const userSnap = await userCollection.where('deviceId', '==', data.user.deviceId).get({ source: 'cache' });
-      if (!userSnap.empty) {
-        userSnap.forEach((doc) => {
-          userCollection.doc(doc.id).update({
-            account: { id: accountDocId, name: accountName },
-            email: data.user.email.toLowerCase(),
-            environment: data.user.environment,
-            lastSeenDate: firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate)),
-            status: data.user.status,
-            url: data.user.url,
-            usingSharedLogin: data.user.usingSharedLogin,
-          })
-            .then(() => firebaseUsageCount('update_user', 'write')) // Note: delete me
-            .catch((err) => handleError('There was a problem updating the user', err));
-        });
+      logger('Updating user account', data);
+      const updateObj = {
+        account: { id: accountDocId, name: accountName },
+        email: data.user.email.toLowerCase(),
+        environment: data.user.environment,
+        lastSeenDate: firebase.firestore.Timestamp.fromDate(new Date(data.lastSeenDate)),
+        status: data.user.status,
+        url: data.user.url,
+        usingSharedLogin: data.user.usingSharedLogin,
+        extensionVerions: chrome.runtime.getManifest().version,
+      };
+      
+      const userNSId = await getUserIdFromStorage();
+      if (userNSId) {
+        logger('Updating from storage', userNSId);
+        userCollection.doc(userNSId).update(updateObj)
+          .then(() => firebaseUsageCount('update_user_storage', 'write')) // Note: delete me
+          .catch((err) => handleError('There was a problem updating the user', err));
+      } else {
+        const userSnap = await userCollection.where('deviceId', '==', data.user.deviceId).get();
+        firebaseUsageCount('update_user', 'read');
+        if (!userSnap.empty) {
+          userSnap.forEach((doc) => {
+            userCollection.doc(doc.id).update(updateObj)
+              .then(() => firebaseUsageCount('update_user', 'write')) // Note: delete me
+              .catch((err) => handleError('There was a problem updating the user', err));
+          });
+        }
       }
     }
   } catch (err) {
@@ -219,24 +285,24 @@ function handleError(title: string, err: unknown): void {
  * }
 */
 
-function firebaseUsageCount(functionName: string, operation: 'read' | 'write') {
+export function firebaseUsageCount(functionName: string, operation: 'read' | 'write'): void {
   chrome.storage.local.get(['nsUserStatusUsage'], (existingStorage) => {
-    console.log('Existing Storage', existingStorage);
-    const existingUsage = existingStorage.nsUserStatusUsage ? JSON.parse(existingStorage.nsUserStatusUsage) : { };
-    console.log('Existing Usage', existingUsage);
+    // console.log('Existing Storage', existingStorage);
+    const existingUsage = existingStorage.nsUserStatusUsage ? JSON.parse(existingStorage.nsUserStatusUsage) : {};
+    // console.log('Existing Usage', existingUsage);
     const currentDate = new Date().toISOString().split('T')[0];
-    console.log('Current Date', currentDate);
+    // console.log('Current Date', currentDate);
     const todaysUsage = existingUsage[currentDate] ?? { [operation]: { total: 0 } };
-    console.log('Today\'s Usage', todaysUsage);
+    // console.log('Today\'s Usage', todaysUsage);
 
     // todaysUsage[`${functionName}-${operation}`] += 1;
     const todaysOperationUsage = todaysUsage[operation] || { total: 0 };
     todaysOperationUsage.total += 1;
     todaysOperationUsage[functionName] = todaysOperationUsage[functionName] ? todaysOperationUsage[functionName] + 1 : 1;
     todaysUsage[operation] = todaysOperationUsage;
-    console.log('New Usages', todaysUsage);
+    // console.log('New Usages', todaysUsage);
     existingUsage[currentDate] = todaysUsage;
-    console.log('Writing Usage', existingUsage);
+    console.log('New Usage', existingUsage);
     chrome.storage.local.set({ nsUserStatusUsage: JSON.stringify(existingUsage) });
   });
 }

@@ -4,6 +4,7 @@ import db from '../firebase';
 import { IAccount, IFirebaseAccount, IFirebaseUser, IUser } from '../../typings';
 import Card from './Card';
 import './styles.css';
+import { firebaseUsageCount } from '../background';
 
 const App: FC = () => {
   const [users, setUsers] = useState<IUser[]>([]);
@@ -13,6 +14,7 @@ const App: FC = () => {
     const unsubscribe = db.collection('users').onSnapshot((snapshot) => {
       const users: IUser[] = [];
       snapshot.forEach((doc) => {
+        firebaseUsageCount('popup_get_users', 'read');
         const firebaseUser = doc.data() as IFirebaseUser;
         users.push({ ...firebaseUser, lastSeenDate: firebaseUser.lastSeenDate ? firebaseUser.lastSeenDate.toDate().toUTCString() : '' });
       });
@@ -30,6 +32,7 @@ const App: FC = () => {
     const unsubscribe = db.collection('accounts').orderBy('lastSeenDate', 'desc').limit(10).onSnapshot((snapshot) => {
       const accounts: IAccount[] = [];
       snapshot.forEach((doc) => {
+        firebaseUsageCount('popup_get_accounts', 'read');
         const firebaseAccount = doc.data() as IFirebaseAccount;
         if (firebaseAccount.accountNum !== '3499441') accounts.push({ ...firebaseAccount, lastSeenDate: firebaseAccount.lastSeenDate.toDate().toUTCString() });
       });

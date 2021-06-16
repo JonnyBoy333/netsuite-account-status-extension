@@ -202,7 +202,7 @@ function isTabActive(): Promise<string> {
 function gatherUserData(document: Document): IUpdate | void {
   const ctxObj = retrieveContextObj(document);
   if (!ctxObj) return;
-  logger('Retreived user data', ctxObj);
+  // logger('Retreived user data', ctxObj);
   const date = new Date().toUTCString();
   const logoElements = document.getElementsByClassName('ns-logo');
   const domain = `https://${document.location.hostname}`;
@@ -229,13 +229,14 @@ function gatherUserData(document: Document): IUpdate | void {
       usingSharedLogin: usingSharedLogin(ctxObj.name, ctxObj.email),
     },
   };
+  logger('Status Obj', updateBody);
   return updateBody;
 }
 
 function usingSharedLogin(name: string, email: string): boolean {
-  const nameArr = name.split(' ');
-  const firstName = nameArr[0]?.toLowerCase();
-  const lastName = nameArr.length > 2 ? nameArr[2]?.toLowerCase() : nameArr[1]?.toLowerCase();
+  const nameArr = name.toLocaleLowerCase().split(' ');
+  const firstName = nameArr[0];
+  const lastName = nameArr.length > 2 ? nameArr[2] : nameArr[1];
   return `${firstName}.${lastName}@bergankdv.com` !== email;
 }
 
@@ -303,6 +304,7 @@ function sendMessageToBackground<T, P>(action: 'updateStatus' | 'addUserStatusLi
 }
 
 export function convertMS(ms: number): { d: number, h: number, m: number, s: number } {
+  if (ms < 0) return { d: 0, h: 0, m: 0, s: 0 };
   let h: number;
   let m: number;
   let s: number;
